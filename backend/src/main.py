@@ -1,10 +1,8 @@
-from backend.src.utils import call_spanda_generate, response_relevance_filter_for_chatbot, context_relevance_filter, call_spanda_retrieve
+from backend.src.utils import invoke_llm
 from backend.src.dissertation_types import QueryRequest, QueryRequestThesis
 from backend.src.configs import *
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware 
-import json
-from fastapi.encoders import jsonable_encoder
 import uvicorn
 import re
 from fastapi.middleware.cors import CORSMiddleware 
@@ -55,11 +53,9 @@ Please evaluate the summarized Dissertation given on the criteria - {criterion} 
             """
         
         # Generate the response using the utility function
-        full_text_dict = await call_spanda_generate(
+        full_text_dict = invoke_llm(
             system_prompt=dissertation_system_prompt,
-            user_prompt=dissertation_user_prompt,
-            user_input=" ",
-            context=" "
+            user_prompt=dissertation_user_prompt
         )
 
         graded_response = full_text_dict["answer"]
@@ -115,11 +111,9 @@ The main goal is to create a significantly smaller version of the text.
         )
     
     # Generate the response using the utility function
-    full_text_dict = await call_spanda_generate(
+    full_text_dict = invoke_llm(
         system_prompt=summarize_system_prompt,
-        user_prompt=summarize_user_prompt,
-        user_input=" ",
-        context=" "
+        user_prompt=summarize_user_prompt
     )
 
     summarized_text = full_text_dict["answer"]

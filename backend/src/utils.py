@@ -1,24 +1,26 @@
 import asyncio
 import httpx
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_ollama import ChatOllama
 
-async def call_spanda_generate(system_prompt: str, user_prompt: str, user_input: str, context: str):
-    url = "http://localhost:8000/api/spandagenerate"
-    request_data = {
-        "user_input": user_input,
-        "context": context,
-        "system_prompt": system_prompt,
-        "user_prompt": user_prompt
-    }
-
-    async with httpx.AsyncClient(timeout=None) as client:
-        response = await client.post(url, json=request_data)
-
-        # Check if the response was successful
-        if response.status_code == 200:
-            is_response_relevant = response.json()
-            return is_response_relevant
-        else:
-            raise Exception(f"Error: {response.status_code} - {response.text}")
+## Method to invoke LLM with system and user prompts
+def invoke_llm(system_prompt, user_prompt):
+    # Set up the ChatOllama model
+    llm = ChatOllama(
+        model="llama3.1",  # Specify the model to use
+        temperature=0.7,   # Customize the temperature for randomness
+    )
+    
+    # Create the messages for the LLM invocation
+    messages = [
+        ("system", system_prompt),
+        ("human", user_prompt)
+    ]
+    
+    # Invoke the LLM
+    ai_msg = llm.invoke(messages)
+    print(ai_msg.content)
+    return {"answer": ai_msg.content}
         
 
 async def call_spanda_retrieve(payload):
