@@ -125,6 +125,8 @@ The main goal is to create a significantly smaller version of the text.
     
     return response
 
-# Run the app using uvicorn
-if __name__ == "__main__":
+def main():
     uvicorn.run(app, host="0.0.0.0", port=8006)
+
+if __name__ == "__main__":
+    main()  # Call the main function if the script is run directly

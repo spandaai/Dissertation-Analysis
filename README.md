@@ -31,7 +31,37 @@ Before running the project, make sure you have the following installed:
 
 ## Steps to run the app
 
-Add installation steps
+### How to build from Source
+
+1. **Clone the Dissertation-Analysis repo**
+
+2. **Create and Initialize a new Python Environment**
+
+For linux/macOS
+```
+python3 -m virtualenv venv
+source venv/bin/activate
+```
+For Windows
+```
+python -m virtualenv venv
+venv/scripts/activate
+```
+
+3. **Install Dissertation-Analysis and its dependencies**
+
+```
+pip install -r requirements.txt
+pip install -e .
+```
+
+4. **Launch Dissertation-Analysis**
+
+```
+da-start
+```
+
+> You can specify the --port and --host via flags
 
 ---
 
