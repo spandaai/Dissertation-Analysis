@@ -1,8 +1,19 @@
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Access the environment variables
+db_type = os.getenv("DB_TYPE")
+weaviate_url = os.getenv("WEAVIATE_URL")
+weaviate_key = os.getenv("WEAVIATE_KEY")
+
 credentials_default = {
     "credentials": {
-            "deployment": "Local",
-            "url": "",
-            "key": ""
+            "deployment": db_type,
+            "url": weaviate_url,
+            "key": weaviate_key
         }
 }
 RagConfigForGeneration= {

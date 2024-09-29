@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  spanda_wilp_dissertation_analysis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8006"
+    volumes:
+      - ./backend/src:/app/backend/src
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL}
+      - WEAVIATE_URL=http://weaviate:8080
+      - VERBA_URL=http://verba:8000
+      - DB_TYPE = "Docker"
+      - WEAVIATE_URL="" # This needs to be an empty string, or needs to be the url in case of cloud weaviate instance
+      - WEAVIATE_KEY="" # This needs to be an empty string, or needs to be the key in case of cloud weaviate instance
+    command: ["da-start"]
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    external: true
