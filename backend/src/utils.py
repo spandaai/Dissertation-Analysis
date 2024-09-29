@@ -1,30 +1,78 @@
-import asyncio
+import json
 import httpx
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_ollama import ChatOllama
+from langchain.llms.base import LLM
+from typing import Optional
+import asyncio
+import os
+from dotenv import load_dotenv
 
-## Method to invoke LLM with system and user prompts
-def invoke_llm(system_prompt, user_prompt):
-    # Set up the ChatOllama model
-    llm = ChatOllama(
-        model="llama3.1",  # Specify the model to use
-        temperature=0.7,   # Customize the temperature for randomness
-    )
-    
-    # Create the messages for the LLM invocation
-    messages = [
-        ("system", system_prompt),
-        ("human", user_prompt)
-    ]
-    
-    # Invoke the LLM
-    ai_msg = llm.invoke(messages)
-    print(ai_msg.content)
-    return {"answer": ai_msg.content}
+# Load environment variables from .env file
+load_dotenv()
+
+# Access the environment variables
+ollama_url = os.getenv("OLLAMA_URL")
+ollama_model = os.getenv("OLLAMA_MODEL")
+verba_url = os.getenv("VERBA_URL")
+
+# Define the OllamaLLM class with flexibility to input system and user prompts
+class OllamaLLM(LLM):
+    def __init__(self, system_prompt: str):
+        self.system_prompt = system_prompt  # Set system prompt during initialization
+
+    async def _invoke_llm(self, user_prompt: str) -> str:
+        # Use the global ollama_url and the system prompt from initialization
+        return await invoke_llm(self.system_prompt, user_prompt)
+
+    def _call(self, prompt: str, stop: Optional[list[str]] = None) -> str:
+        # Call the asynchronous invoke_llm in a synchronous manner
+        response = asyncio.run(self._invoke_llm(prompt))
+        return response["answer"]
+
+    @property
+    def _llm_type(self) -> str:
+        return "ollama_llm"
+
+# Use the global ollama_url directly inside the function
+async def invoke_llm(system_prompt, user_prompt):
+    payload = {
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        "model": ollama_model,
+        "options": {
+            "top_k": 1, 
+            "top_p": 1, 
+            "temperature": 0, 
+            "seed": 100,
+        },
+        "stream": False
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            # Use the global ollama_url here
+            response = await client.post(f"{ollama_url}/api/chat", json=payload, timeout=None)
+
+        if response.status_code == 200:
+            response_data = json.loads(response.content)
+            print("RESPONSE DATA:")
+            print(response_data)
+            ai_msg = response_data['message']['content']
+            return {"answer": ai_msg}
+        else:
+            print(f"Error: {response.status_code} - {response.text}")
+            return {"error": response.text}
+    except httpx.TimeoutException:
+        print("Request timed out. This should not happen with unlimited timeout.")
+        return {"error": "Request timed out"}
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        return {"error": str(e)}
         
 
 async def call_spanda_retrieve(payload):
-    url = "http://localhost:8000/api/query"
+    url = f"{verba_url}/api/query"
 
     request_data = payload
 

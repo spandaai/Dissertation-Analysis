@@ -26,6 +26,7 @@ Before running the project, make sure you have the following installed:
 
 - [Verba](https://github.com/spandaai/Verba-2.0)
 - Python 3.10 (for backend services)
+- Ollama and the required generation model chosen
 
 ---
 

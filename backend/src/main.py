@@ -53,7 +53,7 @@ Please evaluate the summarized Dissertation given on the criteria - {criterion} 
             """
         
         # Generate the response using the utility function
-        full_text_dict = invoke_llm(
+        full_text_dict = await invoke_llm(
             system_prompt=dissertation_system_prompt,
             user_prompt=dissertation_user_prompt
         )
@@ -111,7 +111,7 @@ The main goal is to create a significantly smaller version of the text.
         )
     
     # Generate the response using the utility function
-    full_text_dict = invoke_llm(
+    full_text_dict = await invoke_llm(
         system_prompt=summarize_system_prompt,
         user_prompt=summarize_user_prompt
     )
