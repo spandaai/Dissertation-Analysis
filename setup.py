@@ -17,7 +17,8 @@ setup(
         'python-docx==1.1.2',  # Updated to correct library
         'pytesseract==0.3.13',
         'Pillow==10.4.0',
-        'requests==2.32.3'
+        'requests==2.32.3',
+        "python-dotenv"
     ],
     entry_points={
         'console_scripts': [
