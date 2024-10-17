@@ -22,7 +22,7 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"message": "Hello! This is the Grading Assistant! Grading Assistant is running!"}
+    return {"message": "Hello! This is the Dissertation Analysis! Dissertation Analysis app is running!"}
 
 @app.post("/api/dissertation_analysis")
 async def dissertation(request: QueryRequestThesis):
@@ -37,25 +37,35 @@ You will receive both the summarized dissertation and the criteria to analyze ho
     # Iterate over each criterion in the rubric dictionary
     for criterion, explanation in request.rubric.items():
         dissertation_user_prompt = f"""
-Summarized Dissertation: 
-    <START OF SUMMARIZED DISSERTATION>
+Dissertation: 
+    <START OF DISSERTATION>
         {request.thesis}
-    <END OF SUMMARIZED DISSERTATION>
+    <END OF DISSERTATION>
 
 Evaluation Criterion: 
     <START CRITERION>
         {criterion} - {explanation}
     <END CRITERION>
 
-Please evaluate the summarized Dissertation given on the criteria - {criterion} according to the rubric provided. Provide the evaluation in the following format -
-    Justification: [Provide your detailed evaluation for the criterion '{criterion}' ensuring technical depth, rigorous critique, and full justification. Include specific examples from the dissertation to support your evaluation.]
-    spanda_score = <score(out of 5)> - it is extremely important for the score to be in this exact format.
-            """
+Please evaluate the Dissertation based on the given criterion: {criterion}. Make sure to follow the rubric closely.
+
+Guidelines for Evaluation:
+1. Provide a comprehensive analysis by breaking down the evaluation into different aspects relevant to the criterion. Consider factors such as depth of research, clarity of argument, originality, quality of evidence, coherence, and overall impact.
+2. Justify the evaluation with specific examples or sections from the dissertation where the criterion is met or lacking.
+3. If the dissertation has any notable strengths or weaknesses regarding the criterion, mention them and explain their significance.
+4. Make recommendations for improvement, if applicable.
+
+It is extremely important for the score and justification to be in the following exact format (providing both a justification and spanda_score):
+    - Justification: <Provide a detailed and structured evaluation for the criterion '{criterion}', including specific references and examples from the dissertation. Discuss strengths, weaknesses, and any nuances. >
+    - spanda_score = <score (out of 5)> for {criterion}
+"""
+
         
         # Generate the response using the utility function
         full_text_dict = await invoke_llm(
             system_prompt=dissertation_system_prompt,
-            user_prompt=dissertation_user_prompt
+            user_prompt=dissertation_user_prompt,
+            ollama_model = 'llama3.1'
         )
 
         graded_response = full_text_dict["answer"]
@@ -89,38 +99,56 @@ Please evaluate the summarized Dissertation given on the criteria - {criterion} 
 @app.post("/api/summarize")
 async def summarize(request: QueryRequest):
     summarize_system_prompt = (
-        """
-You are an expert summarizer with a focus on brevity and clarity. Your goal is to produce a clear, concise summary that captures only the most important details, names, dates, and key points. 
-Ensure that the core meaning and critical nuances are preserved while significantly reducing the length of the text. Avoid redundant phrases or introductory language like 'this is a summary.'
-        """
+    """
+You are an expert summarizer specializing in academic dissertations. Your goal is to produce a clear, concise summary that captures the most important details, names, dates, key points, and arguments from the dissertation. 
+While focusing on brevity and clarity, ensure that each relevant section and its significance is maintained, and critical nuances are preserved. Avoid unnecessary details and redundant phrases, while keeping the essential structure and flow of the original content.
+Do not use introductory language like 'this is a summary' or 'here is my'—focus directly on the content.
+    """
     )
 
-    summarize_user_prompt = (
-            f"""
-Text: 
-<START OF TEXT>
 
-    {request.query}
+    def chunk_text(text, chunk_size=1000):
+        # Split the text into words
+        words = text.split()
+        # Generate chunks of the specified size
+        for i in range(0, len(words), chunk_size):
+            yield " ".join(words[i:i + chunk_size])
 
-<END OF TEXT>
+    # Chunk the input text
+    chunks = list(chunk_text(request.query, chunk_size=1000))
 
-Summarize the above text in a clear and concise manner while ensuring that all important details, facts, and key points are preserved. 
-Avoid omitting any crucial information, and maintain the original meaning and intent of the content. But reduce the length of the text significantly. 
-The main goal is to create a significantly smaller version of the text.
-            """
+    # Summarize each chunk and collect the results
+    summarized_chunks = []
+    for chunk in chunks:
+        summarize_user_prompt = (
+    f"""
+Dissertation chunk (part of a larger document): 
+    <START OF DISSERTATION CHUNK>
+        {chunk}
+    <END OF DISSERTATION CHUNK>
+
+Produce an exhaustive summary of the above dissertation chunk. 
+Ensure that all fact, detail, course-related information, title, key point, and argument is included. 
+Note that this is just one section, and more chunks will be provided. Do not treat this as the complete dissertation.
+    """
         )
-    
-    # Generate the response using the utility function
-    full_text_dict = await invoke_llm(
-        system_prompt=summarize_system_prompt,
-        user_prompt=summarize_user_prompt
-    )
 
-    summarized_text = full_text_dict["answer"]
+        # Generate the response using the utility function
+        full_text_dict = await invoke_llm(
+            system_prompt=summarize_system_prompt,
+            user_prompt=summarize_user_prompt,
+            ollama_model = 'nemotron-mini'
+        )
+
+        summarized_chunk = full_text_dict["answer"]
+        summarized_chunks.append(summarized_chunk)
+
+    # Combine all summarized chunks into a final summary
+    final_summary = " ".join(summarized_chunks)
     
-    print(summarized_text)
+    print(final_summary)
     response = {
-        "summarized_text": summarized_text
+        "summarized_text": final_summary
     }
     
     return response

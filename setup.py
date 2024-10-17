@@ -18,7 +18,8 @@ setup(
         'pytesseract==0.3.13',
         'Pillow==10.4.0',
         'requests==2.32.3',
-        "python-dotenv"
+        "python-dotenv",
+        "PyPDF2"
     ],
     entry_points={
         'console_scripts': [
