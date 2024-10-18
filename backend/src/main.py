@@ -26,18 +26,15 @@ def read_root():
 
 @app.post("/api/dissertation_analysis")
 async def dissertation(request: QueryRequestThesis):
-
+    degree_of_student = await extract_degree(request.thesis)
     summary_of_thesis = await summarize(request.thesis)
-
     dissertation_system_prompt ="""You are an impartial academic evaluator - an expert in analyzing the summarized dissertation provided to you. 
 Your task is to assess the quality of the provided summarized dissertation in relation to specific evaluation criteria. 
 You will receive both the summarized dissertation and the criteria to analyze how effectively the dissertation addresses the research topic."""
 
-
-    overall_feedback = ""
+    evaluation_results = {}
     total_score = 0
 
-    # Iterate over each criterion in the rubric dictionary
     for criterion, explanation in request.rubric.items():
         dissertation_user_prompt = f"""
 Dissertation: 
@@ -50,49 +47,48 @@ Evaluation Criterion:
         {criterion} - {explanation}
     <END CRITERION>
 
-Please evaluate the Dissertation based on the given criterion: {criterion}. Make sure to follow the rubric closely.
+Please evaluate the Dissertation based on the given criterion: {criterion}. Make sure to follow the rubric closely. The student is pursuing {degree_of_student}.
 
-Guidelines for Evaluation:
-1. Provide a comprehensive analysis by breaking down the evaluation into different aspects relevant to the criterion. Consider factors such as depth of research, clarity of argument, originality, quality of evidence, coherence, and overall impact.
-2. Justify the evaluation with specific examples or sections from the dissertation where the criterion is met or lacking.
-3. If the dissertation has any notable strengths or weaknesses regarding the criterion, mention them and explain their significance.
-4. Make recommendations for improvement, if applicable.
+It is extremely important for the spanda_score and justification to be in the following exact format (providing both a justification and spanda_score):
+    
+    - Justification: <Be very strict while providing analysis - provide negative points if score is not perfect. Provide a detailed and structured evaluation for the criterion '{criterion}', including specific references and examples from the dissertation. Discuss strengths, weaknesses, and any nuances. >
 
-It is extremely important for the score and justification to be in the following exact format (providing both a justification and spanda_score):
-    - Justification: <Provide a detailed and structured evaluation for the criterion '{criterion}', including specific references and examples from the dissertation. Discuss strengths, weaknesses, and any nuances. >
+<The most important part is for the score to be in the following format>    
     - spanda_score = <score (out of 5)> for {criterion}
 """
-
         
         # Generate the response using the utility function
         full_text_dict = await invoke_llm(
             system_prompt=dissertation_system_prompt,
             user_prompt=dissertation_user_prompt,
-            ollama_model = 'llama3.1'
+            ollama_model='llama3.1'
         )
 
         graded_response = full_text_dict["answer"]
-
-
+        print(graded_response)
         # Extract score using regex
         pattern = r"spanda_score\s*=\s*(\d+)"
         match = re.search(pattern, graded_response)
-
+        
+        # Create dictionary for this criterion's results
+        criterion_result = {}
+        criterion_result['feedback'] = graded_response
         if match:
             score = int(match.group(1))
-            total_score += score  # Add score to the total
+            criterion_result['score'] = score
+            total_score += score
             print(f"Score for criterion '{criterion}': {score}")
         else:
-            score = None
+            criterion_result['score'] = None
             print(f"Score for criterion '{criterion}' not found.")
 
-        # Append feedback for this criterion to the overall feedback
-        overall_feedback += f"\nEvaluation for {criterion}:\n{graded_response}\n\n\n"
-        print(overall_feedback)
-    # Final response with aggregated feedback and score
+        # Add this criterion's results to the main dictionary
+        evaluation_results[criterion] = criterion_result
+
+    # Final response with structured feedback and total score
     response = {
-        "justification": overall_feedback.strip(),
-        "score": total_score
+        "criteria_evaluations": evaluation_results,
+        "total_score": total_score
     }
     
     return response
@@ -105,46 +101,36 @@ def chunk_text(text, chunk_size=1000):
         yield " ".join(words[i:i + chunk_size])
 
 async def summarize(thesis):
-    summarize_system_prompt = (
+    summarize_system_prompt = """
+    You are an expert in summarizing academic dissertations, aiming to capture key details, names, dates, points, and arguments in a clear, brief summary. 
+    Focus on each section's significance while preserving essential nuances. Avoid unnecessary details and introductory phrases.
     """
-You are an expert summarizer specializing in academic dissertations. Your goal is to produce a clear, concise summary that captures the most important details, names, dates, key points, and arguments from the dissertation. 
-While focusing on brevity and clarity, ensure that each relevant section and its significance is maintained, and critical nuances are preserved. Avoid unnecessary details and redundant phrases, while keeping the essential structure and flow of the original content.
-Do not use introductory language like 'this is a summary' or 'here is my'—focus directly on the content.
-    """
-    )
 
     topic = await extract_topic(thesis)
-
-    # Chunk the input text
     chunks = list(chunk_text(thesis, chunk_size=1000))
 
-    # Summarize each chunk and collect the results
     summarized_chunks = []
     for chunk in chunks:
-        summarize_user_prompt = (
-    f"""
-Dissertation chunk (part of a larger document): 
-    <START OF DISSERTATION CHUNK>
+        summarize_user_prompt = f"""
+    Dissertation chunk: 
+    #####################################CHUNK START########################################
         {chunk}
-    <END OF DISSERTATION CHUNK>
+    #####################################CHUNK END##########################################
 
-Produce an exhaustive summary of the above dissertation chunk. 
-Ensure that all fact, detail, course-related information, title, key point, and argument is included. 
-The topic of the dissertation is {topic}. Clearly mention the topic. Note that this is just one section, and more chunks will be provided. Do not treat this as the complete dissertation.
-    """
-        )
+    The topic for overall dissertation is : {topic}
+    Summarize the above chunk concisely, including key facts, details and arguments while reducing the size greatly. Include the essence of the chunk. Treat this as part of a larger document.
+        """
+
 
         # Generate the response using the utility function
         full_text_dict = await invoke_llm(
             system_prompt=summarize_system_prompt,
             user_prompt=summarize_user_prompt,
-            ollama_model = 'nemotron-mini'
+            ollama_model = 'qwen2.5'
         )
 
         summarized_chunk = full_text_dict["answer"]
         summarized_chunks.append(summarized_chunk)
-        print("SUMMARY PART ######################################################")
-        print(summarized_chunk)
 
     # Combine all summarized chunks into a final summary
     final_summary = " ".join(summarized_chunks)
@@ -194,6 +180,42 @@ Extract the exact wording or phrase that clearly states the main topic of the di
     # Final response with aggregated feedback and score
     response = {
         "topic": topic,
+    }
+    
+    return response   
+
+
+async def extract_degree(dissertation):
+    
+    dissertation_first_pages = get_first_100_words(dissertation)
+
+    extract_degree_system_prompt = """
+You are an academic expert tasked with identifying the degree that the submitter is pursuing in a dissertation. Your job is to find the exact wording or phrase in the text that clearly indicates the degree being pursued by the student.
+Do not interpret, summarize, or infer—only locate and extract the exact degree mentioned in the text. Respond with the precise words or phrase that describe the degree.
+"""
+
+    extract_degree_user_prompt = f"""
+Please identify the exact degree that the submitter is pursuing from the following text. The text contains the first few pages of a dissertation:
+
+[CHUNK STARTS]
+    {dissertation_first_pages}
+[CHUNK ENDS]
+
+Extract the exact wording or phrase that clearly states the degree being pursued by the submitter. Respond ONLY with the exact degree mentioned in the text, without any additional explanation or comments.
+"""
+
+        # Generate the response using the utility function
+    full_text_dict = await invoke_llm(
+        system_prompt=extract_degree_system_prompt,
+        user_prompt=extract_degree_user_prompt,
+        ollama_model = 'llama3.1'
+    )
+
+    degree = full_text_dict["answer"]
+    print("THE DEGREE IS: " + degree)
+    # Final response with aggregated feedback and score
+    response = {
+        "degree": degree,
     }
     
     return response   
