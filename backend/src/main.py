@@ -128,7 +128,7 @@ Dissertation chunk (part of a larger document):
         {chunk}
     <END OF DISSERTATION CHUNK>
 
-Produce an exhaustive summary of the above dissertation chunk.
+Produce an exhaustive summary of the above dissertation chunk. 
 Ensure that all fact, detail, course-related information, title, key point, and argument is included. 
 The topic of the dissertation is {topic}. Clearly mention the topic. Note that this is just one section, and more chunks will be provided. Do not treat this as the complete dissertation.
     """
@@ -143,6 +143,8 @@ The topic of the dissertation is {topic}. Clearly mention the topic. Note that t
 
         summarized_chunk = full_text_dict["answer"]
         summarized_chunks.append(summarized_chunk)
+        print("SUMMARY PART ######################################################")
+        print(summarized_chunk)
 
     # Combine all summarized chunks into a final summary
     final_summary = " ".join(summarized_chunks)
@@ -152,41 +154,43 @@ The topic of the dissertation is {topic}. Clearly mention the topic. Note that t
 
     return response
 
-def get_first_500_words(text):
+def get_first_100_words(text):
     # Split the text into words
     words = text.split()
     # Get the first 500 words
-    first_500_words = words[:500]
+    first_100_words = words[:100]
     # Join them back into a string
-    return " ".join(first_500_words)
+    return " ".join(first_100_words)
 
 async def extract_topic(dissertation):
     
-    dissertation_first_pages = get_first_500_words(dissertation)
+    dissertation_first_pages = get_first_100_words(dissertation)
 
     extract_topic_system_prompt = """
-You are an expert in analyzing academic dissertations and extracting their main topics. Your task is to read the first few pages of a dissertation and identify the primary topic being discussed. Focus on understanding the main subject, research area, and key terms that best describe the topic.
-
-Respond only with the extracted topic in a concise and clear manner, without any additional explanation or comments.
+You are an academic expert tasked with identifying the main topic of a dissertation. Your job is to find the exact wording or phrase in the text that clearly indicates the primary topic the student is working on.
+Do not interpret, summarize, or infer—only locate and extract the exact topic mentioned in the text. Respond with the precise words or phrase that describe the topic.
 """
 
     extract_topic_user_prompt = f"""
-Please extract the main topic from the following text. The text contains the first few pages of a dissertation:
+Please identify the exact main topic from the following text. The text contains the first few pages of a dissertation:
 
-{dissertation_first_pages}
+[CHUNK STARTS]
+    {dissertation_first_pages}
+[CHUNK ENDS]
 
-Respond ONLY with the extracted topic in a concise and clear manner, without any additional explanation or comments. The response must have ONLY the topic.
+Extract the exact wording or phrase that clearly states the main topic of the dissertation. Respond ONLY with the exact topic mentioned in the text, without any additional explanation or comments.
 """
+
         
         # Generate the response using the utility function
     full_text_dict = await invoke_llm(
         system_prompt=extract_topic_system_prompt,
         user_prompt=extract_topic_user_prompt,
-        ollama_model = 'nemotron-mini'
+        ollama_model = 'llama3.1'
     )
 
     topic = full_text_dict["answer"]
-
+    print("THE TOPIC IS: " + topic)
     # Final response with aggregated feedback and score
     response = {
         "topic": topic,
