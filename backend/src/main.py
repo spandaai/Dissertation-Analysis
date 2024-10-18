@@ -46,14 +46,14 @@ Evaluation Criterion:
     <START CRITERION>
         {criterion} - {explanation}
     <END CRITERION>
+The student is pursuing {degree_of_student}.
 
-Please evaluate the Dissertation based on the given criterion: {criterion}. Make sure to follow the rubric closely. The student is pursuing {degree_of_student}.
+Please evaluate the Dissertation based on the exact given criterion: {criterion}. 
+Do not divert from the criteria and its given rules. 
+Make sure to give detailed analysis along with the final spanda_score only on the specific criteria mentioned.
+It is important to mention specifics instead of generalized statements. Mention specific pieces which misallign or allign.
 
-It is extremely important for the spanda_score and justification to be in the following exact format (providing both a justification and spanda_score):
-    
-    - Justification: <Be very strict while providing analysis - provide negative points if score is not perfect. Provide a detailed and structured evaluation for the criterion '{criterion}', including specific references and examples from the dissertation. Discuss strengths, weaknesses, and any nuances. >
-
-<The most important part is for the score to be in the following format>    
+The most important part is for the spanda_score to be in the EXACT following format, without any change
     - spanda_score = <score (out of 5)> for {criterion}
 """
         
@@ -67,9 +67,10 @@ It is extremely important for the spanda_score and justification to be in the fo
         graded_response = full_text_dict["answer"]
         print(graded_response)
         # Extract score using regex
+        # Extract score using regex with case-insensitivity
         pattern = r"spanda_score\s*=\s*(\d+)"
-        match = re.search(pattern, graded_response)
-        
+        match = re.search(pattern, graded_response, re.IGNORECASE)
+
         # Create dictionary for this criterion's results
         criterion_result = {}
         criterion_result['feedback'] = graded_response
@@ -81,7 +82,6 @@ It is extremely important for the spanda_score and justification to be in the fo
         else:
             criterion_result['score'] = None
             print(f"Score for criterion '{criterion}' not found.")
-
         # Add this criterion's results to the main dictionary
         evaluation_results[criterion] = criterion_result
 
