@@ -28,7 +28,7 @@ def read_root():
 async def dissertation(request: QueryRequestThesis):
 
     summary_of_thesis = await summarize(request.thesis)
-    
+
     dissertation_system_prompt ="""You are an impartial academic evaluator - an expert in analyzing the summarized dissertation provided to you. 
 Your task is to assess the quality of the provided summarized dissertation in relation to specific evaluation criteria. 
 You will receive both the summarized dissertation and the criteria to analyze how effectively the dissertation addresses the research topic."""
@@ -113,7 +113,7 @@ Do not use introductory language like 'this is a summary' or 'here is my'—focu
     """
     )
 
-    topic = extract_topic(thesis)
+    topic = await extract_topic(thesis)
 
     # Chunk the input text
     chunks = list(chunk_text(thesis, chunk_size=1000))
