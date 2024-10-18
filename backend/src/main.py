@@ -26,6 +26,9 @@ def read_root():
 
 @app.post("/api/dissertation_analysis")
 async def dissertation(request: QueryRequestThesis):
+
+    summary_of_thesis = await summarize(request.thesis)
+    
     dissertation_system_prompt ="""You are an impartial academic evaluator - an expert in analyzing the summarized dissertation provided to you. 
 Your task is to assess the quality of the provided summarized dissertation in relation to specific evaluation criteria. 
 You will receive both the summarized dissertation and the criteria to analyze how effectively the dissertation addresses the research topic."""
@@ -39,7 +42,7 @@ You will receive both the summarized dissertation and the criteria to analyze ho
         dissertation_user_prompt = f"""
 Dissertation: 
     <START OF DISSERTATION>
-        {request.thesis}
+        {summary_of_thesis}
     <END OF DISSERTATION>
 
 Evaluation Criterion: 
@@ -94,10 +97,14 @@ It is extremely important for the score and justification to be in the following
     
     return response
 
+def chunk_text(text, chunk_size=1000):
+    # Split the text into words
+    words = text.split()
+    # Generate chunks of the specified size
+    for i in range(0, len(words), chunk_size):
+        yield " ".join(words[i:i + chunk_size])
 
-
-@app.post("/api/summarize")
-async def summarize(request: QueryRequest):
+async def summarize(thesis):
     summarize_system_prompt = (
     """
 You are an expert summarizer specializing in academic dissertations. Your goal is to produce a clear, concise summary that captures the most important details, names, dates, key points, and arguments from the dissertation. 
@@ -106,16 +113,10 @@ Do not use introductory language like 'this is a summary' or 'here is my'—focu
     """
     )
 
-
-    def chunk_text(text, chunk_size=1000):
-        # Split the text into words
-        words = text.split()
-        # Generate chunks of the specified size
-        for i in range(0, len(words), chunk_size):
-            yield " ".join(words[i:i + chunk_size])
+    topic = extract_topic(thesis)
 
     # Chunk the input text
-    chunks = list(chunk_text(request.query, chunk_size=1000))
+    chunks = list(chunk_text(thesis, chunk_size=1000))
 
     # Summarize each chunk and collect the results
     summarized_chunks = []
@@ -127,9 +128,9 @@ Dissertation chunk (part of a larger document):
         {chunk}
     <END OF DISSERTATION CHUNK>
 
-Produce an exhaustive summary of the above dissertation chunk. 
+Produce an exhaustive summary of the above dissertation chunk.
 Ensure that all fact, detail, course-related information, title, key point, and argument is included. 
-Note that this is just one section, and more chunks will be provided. Do not treat this as the complete dissertation.
+The topic of the dissertation is {topic}. Clearly mention the topic. Note that this is just one section, and more chunks will be provided. Do not treat this as the complete dissertation.
     """
         )
 
@@ -147,11 +148,52 @@ Note that this is just one section, and more chunks will be provided. Do not tre
     final_summary = " ".join(summarized_chunks)
     
     print(final_summary)
+    response = final_summary
+
+    return response
+
+def get_first_500_words(text):
+    # Split the text into words
+    words = text.split()
+    # Get the first 500 words
+    first_500_words = words[:500]
+    # Join them back into a string
+    return " ".join(first_500_words)
+
+async def extract_topic(dissertation):
+    
+    dissertation_first_pages = get_first_500_words(dissertation)
+
+    extract_topic_system_prompt = """
+You are an expert in analyzing academic dissertations and extracting their main topics. Your task is to read the first few pages of a dissertation and identify the primary topic being discussed. Focus on understanding the main subject, research area, and key terms that best describe the topic.
+
+Respond only with the extracted topic in a concise and clear manner, without any additional explanation or comments.
+"""
+
+    extract_topic_user_prompt = f"""
+Please extract the main topic from the following text. The text contains the first few pages of a dissertation:
+
+{dissertation_first_pages}
+
+Respond ONLY with the extracted topic in a concise and clear manner, without any additional explanation or comments. The response must have ONLY the topic.
+"""
+        
+        # Generate the response using the utility function
+    full_text_dict = await invoke_llm(
+        system_prompt=extract_topic_system_prompt,
+        user_prompt=extract_topic_user_prompt,
+        ollama_model = 'nemotron-mini'
+    )
+
+    topic = full_text_dict["answer"]
+
+    # Final response with aggregated feedback and score
     response = {
-        "summarized_text": final_summary
+        "topic": topic,
     }
     
-    return response
+    return response   
+
 
 def main():
     uvicorn.run(app, host="0.0.0.0", port=8006)
