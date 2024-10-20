@@ -28,8 +28,8 @@ def read_root():
 async def dissertation(request: QueryRequestThesis):
     degree_of_student = await extract_degree(request.thesis)
     name_of_author = await extract_name(request.thesis)
-    summary_of_thesis = await summarize(request.thesis)
     topic = await extract_topic(request.thesis)
+    summary_of_thesis = await summarize(request.thesis, topic, request.rubric)
     dissertation_system_prompt ="""You are an impartial academic evaluator - an expert in analyzing the summarized dissertation provided to you. 
 Your task is to assess the quality of the provided summarized dissertation in relation to specific evaluation criteria. 
 You will receive both the summarized dissertation and the criteria to analyze how effectively the dissertation addresses the research topic."""
@@ -38,35 +38,29 @@ You will receive both the summarized dissertation and the criteria to analyze ho
     total_score = 0
 
     for criterion, explanation in request.rubric.items():
-        dissertation_user_prompt = f'''
+        dissertation_user_prompt = f"""
 # Input Materials
 ## Dissertation Text
 {summary_of_thesis}
 
 ## Evaluation Context
 - Author: {name_of_author}
-- Degree Program: {degree_of_student}
+- Academic Field: {degree_of_student}
 
-## Assessment Criterion
-{criterion}
-{explanation}
+## Assessment Criterion and its explanation
+### {criterion} :
+#### Explanation: {explanation}
 
-# Evaluation Instructions
-1. Evaluate ONLY the specified criterion: {criterion}
-2. Analyze content against criterion
-3. Include both strengths and areas for improvement
-4. Focus on concrete evidence rather than general statements
-5. Base analysis strictly on the given criterion explanation
-
-# Required Output Format
-1. Detailed Analysis:
-   - Clearly state understanding and scope of evaluation target with respect to {criterion}
-   - Connect evidence directly to criterion
-   - Identify specific alignments/misalignments
-
-2. Final Score:
+# Required Output Format and Instructions
+   1. Clearly state understanding and scope of evaluation target with respect to {criterion}
+   2. Connect evidence directly to criterion. Give a detailed analysis pointwise on the strengths and weaknesses of the dissertation when it comes to "{criterion}".
+   3. Whatever weaknesses and strengths are mentioned, provide specific examples from the dissertation that justify those.
+   4. Provide specific, actionable recommendations for improvements to the dissertation.
+   5. Identify and address key concepts or technologies that can be used to solve the problem but may be missing. 
+   6. Ensure feedback is precise, grounded, and directly useful for enhancing the content.
+2. It is important to provide the final score this in this exact format, no changes in any of the characters or spaces.
 spanda_score: <score (out of 5)> for {criterion}
-'''
+"""
         
         # Generate the response using the utility function
         full_text_dict = await invoke_llm(
@@ -76,22 +70,23 @@ spanda_score: <score (out of 5)> for {criterion}
         )
 
         graded_response = full_text_dict["answer"]
+        print("#################################################################################")
         print(graded_response)
         # Extract score using regex
         # Extract score using regex with case-insensitivity
-        pattern = r"spanda_score\s*:\s*(\d+)"
+        pattern = r"spanda_score\s*:\s*(?:\*{1,2}\s*)?(\d+(?:\.\d+)?)\s*(?:\*{1,2})?"
         match = re.search(pattern, graded_response, re.IGNORECASE)
 
         # Create dictionary for this criterion's results
         criterion_result = {}
         criterion_result['feedback'] = graded_response
         if match:
-            score = int(match.group(1))
+            score = float(match.group(1))
             criterion_result['score'] = score
             total_score += score
             print(f"Score for criterion '{criterion}': {score}")
         else:
-            criterion_result['score'] = None
+            criterion_result['score'] = 0
             print(f"Score for criterion '{criterion}' not found.")
         # Add this criterion's results to the main dictionary
         evaluation_results[criterion] = criterion_result

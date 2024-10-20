@@ -2,6 +2,7 @@ import json
 import httpx
 import os
 from dotenv import load_dotenv
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # Load environment variables from .env file
 load_dotenv()
@@ -49,27 +50,52 @@ async def invoke_llm(system_prompt, user_prompt, ollama_model):
         
 
 def chunk_text(text, chunk_size=1000):
-    # Split the text into words
-    words = text.split()
-    # Generate chunks of the specified size
-    for i in range(0, len(words), chunk_size):
-        yield " ".join(words[i:i + chunk_size])
+    """
+    Splits text into semantic chunks using LangChain's RecursiveCharacterTextSplitter,
+    maintaining similar output format as the original function.
+    
+    Args:
+        text (str): The input text to be chunked
+        chunk_size (int): Target size for each chunk in words (approximate)
+        
+    Returns:
+        list: List of tuples (chunk_text, actual_chunk_size)
+    """
+    # Initialize the text splitter
+    # Using average word length of 5 characters + 1 for space to convert words to chars
+    chars_per_chunk = chunk_size * 6
+    
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chars_per_chunk,
+        chunk_overlap=50,  # Some overlap to maintain context
+        length_function=len,
+        separators=["\n\n", "\n", ". ", " ", ""]
+    )
+    
+    # Split the text
+    raw_chunks = text_splitter.split_text(text)
+    
+    # Convert to required format with word counts
+    chunks = []
+    for chunk in raw_chunks:
+        word_count = len(chunk.split())
+        chunks.append((chunk, word_count))
+    
+    return chunks
 
-async def summarize(thesis):
-    summarize_system_prompt = """
+async def summarize(thesis, topic, rubric):
+    rubric_keys_string = ', '.join(rubric.keys())
+    summarize_system_prompt = f"""
     You are an expert in summarizing academic dissertations, aiming to capture key details, names, dates, points, and arguments in a clear, brief summary. 
     Focus on each section's significance while preserving essential nuances. Avoid unnecessary details and introductory phrases.
     """
-
-    topic = await extract_topic(thesis)
-    chunks = list(chunk_text(thesis, chunk_size=1000))
-
+    chunks = chunk_text(thesis, chunk_size=1000)
     summarized_chunks = []
     for chunk in chunks:
         summarize_user_prompt = f'''
 # Input Content
 ## Dissertation Segment
-{chunk}
+{chunk[0]}
 
 ## Context
 Topic: {topic}
@@ -80,33 +106,34 @@ Topic: {topic}
    - Retains key facts and details
    - Maintains logical flow
    - Connects to overall topic: {topic}
-   - Acknowledges this is part of larger work
+   - Acknowledges this is part of a larger work
 
 # Output Requirements
-- Significantly condensed length
-- Preserve core meaning
-- Focus on substance over style
+- Significantly reduced length with no formatting.
 - Maintain academic tone
+- Do NOT guess. Just summarize whatever is mentioned in the dissertation chunk.
 - Provide ONLY the summarized text, no filler words.
 '''
 
         # Generate the response using the utility function
-        full_text_dict = await invoke_llm(
-            system_prompt=summarize_system_prompt,
-            user_prompt=summarize_user_prompt,
-            ollama_model = 'qwen2.5'
-        )
+        try:
+            full_text_dict = await invoke_llm(
+                system_prompt=summarize_system_prompt,
+                user_prompt=summarize_user_prompt,
+                ollama_model='qwen2.5'
+            )
 
-        summarized_chunk = full_text_dict["answer"]
-        summarized_chunks.append(summarized_chunk)
+            summarized_chunk = full_text_dict["answer"]
+            print(summarized_chunk)
+            summarized_chunks.append(summarized_chunk)
+
+        except Exception as e:
+            print(f"Error during LLM invocation: {e}")
+            summarized_chunks.append("")  # Append an empty string if there's an error
 
     # Combine all summarized chunks into a final summary
-    final_summary = " ".join(summarized_chunks)
+    final_summary = " ".join(summarized_chunks).replace("\n", "")
 
-    # Remove all new lines from the final summary
-    final_summary = final_summary.replace("\n", "")
-
-    print(final_summary)
     response = final_summary
 
     return response
