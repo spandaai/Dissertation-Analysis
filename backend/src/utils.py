@@ -1,8 +1,5 @@
 import json
 import httpx
-from langchain.llms.base import LLM
-from typing import Optional
-import asyncio
 import os
 from dotenv import load_dotenv
 
@@ -23,10 +20,10 @@ async def invoke_llm(system_prompt, user_prompt, ollama_model):
         ],
         "model": ollama_model,
         "options": {
-            "top_k": 1, 
-            "top_p": 1, 
-            "temperature": 0, 
-            "seed": 100,
+            "top_k": 50, 
+            "top_p": 0.5, 
+            "temperature": 0.7,
+            "seed": 42
         },
         "stream": False
     }
@@ -50,3 +47,202 @@ async def invoke_llm(system_prompt, user_prompt, ollama_model):
         print(f"An error occurred: {str(e)}")
         return {"error": str(e)}
         
+
+def chunk_text(text, chunk_size=1000):
+    # Split the text into words
+    words = text.split()
+    # Generate chunks of the specified size
+    for i in range(0, len(words), chunk_size):
+        yield " ".join(words[i:i + chunk_size])
+
+async def summarize(thesis):
+    summarize_system_prompt = """
+    You are an expert in summarizing academic dissertations, aiming to capture key details, names, dates, points, and arguments in a clear, brief summary. 
+    Focus on each section's significance while preserving essential nuances. Avoid unnecessary details and introductory phrases.
+    """
+
+    topic = await extract_topic(thesis)
+    chunks = list(chunk_text(thesis, chunk_size=1000))
+
+    summarized_chunks = []
+    for chunk in chunks:
+        summarize_user_prompt = f'''
+# Input Content
+## Dissertation Segment
+{chunk}
+
+## Context
+Topic: {topic}
+
+# Summarization Instructions
+1. Create a concise summary that:
+   - Captures essential arguments
+   - Retains key facts and details
+   - Maintains logical flow
+   - Connects to overall topic: {topic}
+   - Acknowledges this is part of larger work
+
+# Output Requirements
+- Significantly condensed length
+- Preserve core meaning
+- Focus on substance over style
+- Maintain academic tone
+- Provide ONLY the summarized text, no filler words.
+'''
+
+        # Generate the response using the utility function
+        full_text_dict = await invoke_llm(
+            system_prompt=summarize_system_prompt,
+            user_prompt=summarize_user_prompt,
+            ollama_model = 'qwen2.5'
+        )
+
+        summarized_chunk = full_text_dict["answer"]
+        summarized_chunks.append(summarized_chunk)
+
+    # Combine all summarized chunks into a final summary
+    final_summary = " ".join(summarized_chunks)
+
+    # Remove all new lines from the final summary
+    final_summary = final_summary.replace("\n", "")
+
+    print(final_summary)
+    response = final_summary
+
+    return response
+
+
+def get_first_n_words(text, n):
+    # Split the text into words
+    words = text.split()
+    # Get the first 500 words
+    first_n_words = words[:n]
+    # Join them back into a string
+    return " ".join(first_n_words)
+
+
+async def extract_name(dissertation):
+    
+    dissertation_first_pages = get_first_n_words(dissertation, 200)
+
+    extract_name_system_prompt = """
+    You are an academic expert tasked with identifying the author of a dissertation. Your job is to find the exact wording or phrase in the text that clearly indicates the author's name.
+    Do not interpret, summarize, or infer—only locate and extract the exact name mentioned in the text. Respond with the precise name as it appears in the document.
+    """
+
+    extract_name_user_prompt = f"""
+# Author Name Extraction
+## Input
+The text contains the first few pages of a dissertation:
+
+[CHUNK STARTS]
+{dissertation_first_pages}
+[CHUNK ENDS]
+
+## Instructions
+- Extract the exact wording or phrase that clearly states the author's name
+- Return ONLY the exact name as mentioned in the text
+- Do not include any additional explanation or comments
+- Only extract and send the name, nothing else.
+
+## Output Format
+Name should be returned exactly as written in the text
+"""
+        
+        # Generate the response using the utility function
+    full_text_dict = await invoke_llm(
+        system_prompt=extract_name_system_prompt,
+        user_prompt=extract_name_user_prompt,
+        ollama_model = 'nemotron-mini'
+    )
+
+    name = full_text_dict["answer"]
+    print("THE NAME IS IS: " + name)
+    # Final response with aggregated feedback and score
+    
+    return name 
+
+
+async def extract_topic(dissertation):
+    
+    dissertation_first_pages = get_first_n_words(dissertation, 150)
+
+    extract_topic_system_prompt = """
+You are an academic expert tasked with identifying the main topic of a dissertation. Your job is to find the exact wording or phrase in the text that clearly indicates the primary topic the student is working on.
+Do not interpret, summarize, or infer—only locate and extract the exact topic mentioned in the text. Respond with the precise words or phrase that describe the topic.
+"""
+
+    # Prompt to extract main topic
+    extract_topic_user_prompt = f"""
+# Topic Extraction
+## Input
+The text contains the first few pages of a dissertation:
+
+[CHUNK STARTS]
+{dissertation_first_pages}
+[CHUNK ENDS]
+
+## Instructions
+- Extract the exact wording or phrase that clearly states the main topic
+- Return ONLY the exact topic as mentioned in the text
+- Do not include any additional explanation or comments
+- Only extract and send the topic, nothing else.
+
+## Output Format
+Topic should be returned exactly as written in the text
+"""
+
+        
+        # Generate the response using the utility function
+    full_text_dict = await invoke_llm(
+        system_prompt=extract_topic_system_prompt,
+        user_prompt=extract_topic_user_prompt,
+        ollama_model = 'nemotron-mini'
+    )
+
+    topic = full_text_dict["answer"]
+    print("THE TOPIC IS: " + topic)
+    # Final response with aggregated feedback and score
+    
+    return topic 
+
+
+async def extract_degree(dissertation):
+    
+    dissertation_first_pages = get_first_n_words(dissertation, 200)
+
+    extract_degree_system_prompt = """
+You are an academic expert tasked with identifying the degree that the submitter is pursuing in a dissertation. Your job is to find the exact wording or phrase in the text that clearly indicates the degree being pursued by the student.
+Do not interpret, summarize, or infer—only locate and extract the exact degree mentioned in the text. Respond with the precise words or phrase that describe the degree.
+"""
+
+    extract_degree_user_prompt = f"""
+# Degree Information Extraction
+## Input
+The text contains the first few pages of a dissertation:
+
+[CHUNK STARTS]
+{dissertation_first_pages}
+[CHUNK ENDS]
+
+## Instructions
+- Extract the exact wording or phrase that clearly states the degree being pursued
+- Return ONLY the exact degree as mentioned in the text
+- Do not include any additional explanation or comments
+- Only extract and send the degree, nothing else.
+
+## Output Format
+Degree should be returned exactly as written in the text
+"""
+
+        # Generate the response using the utility function
+    full_text_dict = await invoke_llm(
+        system_prompt=extract_degree_system_prompt,
+        user_prompt=extract_degree_user_prompt,
+        ollama_model = 'nemotron-mini'
+    )
+
+    degree = full_text_dict["answer"]
+    print("THE DEGREE IS: " + degree)
+    
+    return degree 
