@@ -1,6 +1,8 @@
-from typing import Literal
+from typing import Literal, Dict
 from pydantic import BaseModel
 from enum import Enum
+from typing_extensions import TypedDict
+from pydantic import BaseModel
 
 class QueryRequest(BaseModel):
     query: str
@@ -15,10 +17,15 @@ class Credentials(BaseModel):
 class ConversationItem(BaseModel):
     type: str
     content: str
-    
+
+class RubricCriteria(TypedDict):
+    criteria_explanation: str
+    score_explanation: str
+    criteria_output: str
+
 class QueryRequestThesis(BaseModel):
     thesis: str
-    rubric: dict[str, str]  # rubric is now a dictionary with criteria name and explanation
+    rubric: Dict[str, RubricCriteria]     # rubric is now a dictionary with criteria name and explanation
 
 class ChunksPayload(BaseModel):
     uuid: str

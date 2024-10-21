@@ -111,8 +111,8 @@ Topic: {topic}
 # Output Requirements
 - Significantly reduced length with no formatting.
 - Maintain academic tone
-- Do NOT guess. Just summarize whatever is mentioned in the dissertation chunk.
-- Provide ONLY the summarized text, no filler words.
+- Do NOT guess. Just summarize whatever is mentioned in the dissertation chunk. Do not add anything to the dissertation chunk, just summarize.
+- Provide ONLY the summarized text, no filler words or formatting.
 '''
 
         # Generate the response using the utility function
@@ -150,7 +150,7 @@ def get_first_n_words(text, n):
 
 async def extract_name(dissertation):
     
-    dissertation_first_pages = get_first_n_words(dissertation, 200)
+    dissertation_first_pages = get_first_n_words(dissertation, 300)
 
     extract_name_system_prompt = """
     You are an academic expert tasked with identifying the author of a dissertation. Your job is to find the exact wording or phrase in the text that clearly indicates the author's name.
@@ -192,7 +192,7 @@ Name should be returned exactly as written in the text
 
 async def extract_topic(dissertation):
     
-    dissertation_first_pages = get_first_n_words(dissertation, 150)
+    dissertation_first_pages = get_first_n_words(dissertation, 300)
 
     extract_topic_system_prompt = """
 You are an academic expert tasked with identifying the main topic of a dissertation. Your job is to find the exact wording or phrase in the text that clearly indicates the primary topic the student is working on.
@@ -236,7 +236,7 @@ Topic should be returned exactly as written in the text
 
 async def extract_degree(dissertation):
     
-    dissertation_first_pages = get_first_n_words(dissertation, 200)
+    dissertation_first_pages = get_first_n_words(dissertation, 300)
 
     extract_degree_system_prompt = """
 You are an academic expert tasked with identifying the degree that the submitter is pursuing in a dissertation. Your job is to find the exact wording or phrase in the text that clearly indicates the degree being pursued by the student.
@@ -273,3 +273,33 @@ Degree should be returned exactly as written in the text
     print("THE DEGREE IS: " + degree)
     
     return degree 
+
+async def scoring_agent(analysis, criteria, score_guidelines, criteria_guidelines):
+    scoring_agent_system_prompt = """You are a precise scoring agent that evaluates one dissertation criterion at a time. 
+    Review the provided criterion analysis, match it to the scoring guidelines, and assign a score from 0 to 5, without justification, solely use the analysis for your justification. 
+    Evaluate only the assigned criterion, using only the given analysis, and follow the guidelines exactly. 
+    Do not consider external factors, make assumptions, or deviate from objective standards."""
+
+    scoring_agent_user_prompt = f"""# Provide a score for the following analysis done:
+
+-Analysis: {analysis}
+
+-Explanation of {criteria}: {criteria_guidelines}
+
+-Guidelines of scoring for {criteria}: {score_guidelines}
+
+Your score will only be for the following criterion: {criteria}. Provide ONLY the score based on the analysis that has been done.
+
+Required output format. It is extremely important for the score to be displayed in this exact format with no formatting and whitespaces:
+spanda_score: <score (out of 5)>"""
+        
+    # Generate the response using the utility function
+    full_text_dict = await invoke_llm(
+        system_prompt=scoring_agent_system_prompt,
+        user_prompt=scoring_agent_user_prompt,
+        ollama_model = 'llama3.1'
+    )
+
+    score_for_criteria = full_text_dict["answer"]
+    
+    return score_for_criteria 

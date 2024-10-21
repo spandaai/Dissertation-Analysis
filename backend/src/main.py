@@ -48,18 +48,12 @@ You will receive both the summarized dissertation and the criteria to analyze ho
 - Academic Field: {degree_of_student}
 
 ## Assessment Criterion and its explanation
-### {criterion} :
-#### Explanation: {explanation}
+### {criterion}:
+#### Explanation: {explanation['criteria_explanation']}
 
-# Required Output Format and Instructions
-   1. Clearly state understanding and scope of evaluation target with respect to {criterion}
-   2. Connect evidence directly to criterion. Give a detailed analysis pointwise on the strengths and weaknesses of the dissertation when it comes to "{criterion}".
-   3. Whatever weaknesses and strengths are mentioned, provide specific examples from the dissertation that justify those.
-   4. Provide specific, actionable recommendations for improvements to the dissertation.
-   5. Identify and address key concepts or technologies that can be used to solve the problem but may be missing. 
-   6. Ensure feedback is precise, grounded, and directly useful for enhancing the content.
-2. It is important to provide the final score this in this exact format, no changes in any of the characters or spaces.
-spanda_score: <score (out of 5)> for {criterion}
+{explanation['criteria_output']}
+
+2. DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO SCORES ASSOCIATED WITH IT.
 """
         
         # Generate the response using the utility function
@@ -69,17 +63,24 @@ spanda_score: <score (out of 5)> for {criterion}
             ollama_model='llama3.1'
         )
 
-        graded_response = full_text_dict["answer"]
-        print("#################################################################################")
+        analyzed_dissertation = full_text_dict["answer"]
+        print("###########################################Analysis Started##################################################")
+        print(analyzed_dissertation)
+        print("###########################################Analysis Finished##################################################")
+
+        graded_response = await scoring_agent(analyzed_dissertation, criterion, explanation['score_explanation'], explanation['criteria_explanation'])
+
+        print("###########################################Scoring Started##################################################")
         print(graded_response)
-        # Extract score using regex
+        print("###########################################Scoring Finished##################################################")
+
         # Extract score using regex with case-insensitivity
         pattern = r"spanda_score\s*:\s*(?:\*{1,2}\s*)?(\d+(?:\.\d+)?)\s*(?:\*{1,2})?"
         match = re.search(pattern, graded_response, re.IGNORECASE)
 
         # Create dictionary for this criterion's results
         criterion_result = {}
-        criterion_result['feedback'] = graded_response
+        criterion_result['feedback'] = analyzed_dissertation
         if match:
             score = float(match.group(1))
             criterion_result['score'] = score
