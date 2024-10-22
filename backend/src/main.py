@@ -53,14 +53,16 @@ You will receive both the summarized dissertation and the criteria to analyze ho
 
 {explanation['criteria_output']}
 
-2. DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO SCORES ASSOCIATED WITH IT.
+Please make sure that you critique the work heavily, including all improvements that can be made.
+
+DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO SCORES ASSOCIATED WITH IT.
 """
         
         # Generate the response using the utility function
         full_text_dict = await invoke_llm(
             system_prompt=dissertation_system_prompt,
             user_prompt=dissertation_user_prompt,
-            ollama_model='llama3.1'
+            ollama_model='command-r'
         )
 
         analyzed_dissertation = full_text_dict["answer"]

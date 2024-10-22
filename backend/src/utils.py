@@ -14,17 +14,23 @@ verba_url = os.getenv("VERBA_URL")
 
 # Use the global ollama_url directly inside the function
 async def invoke_llm(system_prompt, user_prompt, ollama_model):
+    prompt = f"""
+{system_prompt}
+
+{user_prompt}
+"""
     payload = {
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
+        # "messages": [
+        #     {"role": "system", "content": system_prompt},
+        #     {"role": "user", "content": user_prompt}
+        # ],
+        "prompt": prompt,
         "model": ollama_model,
         "options": {
-            "top_k": 50, 
-            "top_p": 0.5, 
-            "temperature": 0.7,
-            "seed": 42
+            "top_k": 1, 
+            "top_p": 0, 
+            "temperature": 0,
+            "seed": 100
         },
         "stream": False
     }
@@ -32,11 +38,11 @@ async def invoke_llm(system_prompt, user_prompt, ollama_model):
     try:
         async with httpx.AsyncClient() as client:
             # Use the global ollama_url here
-            response = await client.post(f"{ollama_url}/api/chat", json=payload, timeout=None)
+            response = await client.post(f"{ollama_url}/api/generate", json=payload, timeout=None)
+            response_data = json.loads(response.content)
 
         if response.status_code == 200:
-            response_data = json.loads(response.content)
-            ai_msg = response_data['message']['content']
+            ai_msg = response_data['response']
             return {"answer": ai_msg}
         else:
             print(f"Error: {response.status_code} - {response.text}")
@@ -67,7 +73,7 @@ def chunk_text(text, chunk_size=1000):
     
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chars_per_chunk,
-        chunk_overlap=50,  # Some overlap to maintain context
+        chunk_overlap=0,  # Some overlap to maintain context
         length_function=len,
         separators=["\n\n", "\n", ". ", " ", ""]
     )
@@ -84,7 +90,6 @@ def chunk_text(text, chunk_size=1000):
     return chunks
 
 async def summarize(thesis, topic, rubric):
-    rubric_keys_string = ', '.join(rubric.keys())
     summarize_system_prompt = f"""
     You are an expert in summarizing academic dissertations, aiming to capture key details, names, dates, points, and arguments in a clear, brief summary. 
     Focus on each section's significance while preserving essential nuances. Avoid unnecessary details and introductory phrases.
@@ -109,10 +114,10 @@ Topic: {topic}
    - Acknowledges this is part of a larger work
 
 # Output Requirements
-- Significantly reduced length with no formatting.
+- Do not miss crucial details, but significantly reduced length and condensed information with no formatting.
 - Maintain academic tone
 - Do NOT guess. Just summarize whatever is mentioned in the dissertation chunk. Do not add anything to the dissertation chunk, just summarize.
-- Provide ONLY the summarized text, no filler words or formatting.
+- Provide ONLY the summarized text, no filler words or formatting. Avoid summarizing references.
 '''
 
         # Generate the response using the utility function
@@ -120,7 +125,7 @@ Topic: {topic}
             full_text_dict = await invoke_llm(
                 system_prompt=summarize_system_prompt,
                 user_prompt=summarize_user_prompt,
-                ollama_model='qwen2.5'
+                ollama_model='command-r'
             )
 
             summarized_chunk = full_text_dict["answer"]
@@ -180,7 +185,7 @@ Name should be returned exactly as written in the text
     full_text_dict = await invoke_llm(
         system_prompt=extract_name_system_prompt,
         user_prompt=extract_name_user_prompt,
-        ollama_model = 'nemotron-mini'
+        ollama_model = 'llama3.1:70b'
     )
 
     name = full_text_dict["answer"]
@@ -224,7 +229,7 @@ Topic should be returned exactly as written in the text
     full_text_dict = await invoke_llm(
         system_prompt=extract_topic_system_prompt,
         user_prompt=extract_topic_user_prompt,
-        ollama_model = 'nemotron-mini'
+        ollama_model = 'llama3.1:70b'
     )
 
     topic = full_text_dict["answer"]
@@ -266,9 +271,9 @@ Degree should be returned exactly as written in the text
     full_text_dict = await invoke_llm(
         system_prompt=extract_degree_system_prompt,
         user_prompt=extract_degree_user_prompt,
-        ollama_model = 'nemotron-mini'
+        ollama_model = 'llama3.1:70b'
     )
-
+    
     degree = full_text_dict["answer"]
     print("THE DEGREE IS: " + degree)
     
@@ -288,7 +293,7 @@ async def scoring_agent(analysis, criteria, score_guidelines, criteria_guideline
 
 -Guidelines of scoring for {criteria}: {score_guidelines}
 
-Your score will only be for the following criterion: {criteria}. Provide ONLY the score based on the analysis that has been done.
+Your score will only be for the following criterion: {criteria}. Provide ONLY the score based on the analysis that has been done. Be very critical while providing the score.
 
 Required output format. It is extremely important for the score to be displayed in this exact format with no formatting and whitespaces:
 spanda_score: <score (out of 5)>"""
@@ -297,7 +302,7 @@ spanda_score: <score (out of 5)>"""
     full_text_dict = await invoke_llm(
         system_prompt=scoring_agent_system_prompt,
         user_prompt=scoring_agent_user_prompt,
-        ollama_model = 'llama3.1'
+        ollama_model = 'llama3.1:70b'
     )
 
     score_for_criteria = full_text_dict["answer"]
