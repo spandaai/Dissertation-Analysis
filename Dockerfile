@@ -1,14 +1,11 @@
-# Use a base image with Python 3.10
+# Use an official Python runtime as a parent image
 FROM python:3.10-slim
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-# Set the working directory
+# Set the working directory inside the container
 WORKDIR /app
 
-# Copy the setup files
+# Copy the contents of the backend directory into the container
+COPY backend/ /app/backend/
 COPY setup.py ./
 COPY requirements.txt ./
 
@@ -17,10 +14,8 @@ RUN pip install --upgrade pip \
     && pip install -r requirements.txt \
     && pip install -e .
 
-# Copy the application code
-COPY ./backend/src ./backend/src
-
-# Expose the desired port (change as needed)
+# Expose port 8006 for the FastAPI application
 EXPOSE 8006
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8006", "--reload"]
+# Command to run the FastAPI app
+CMD ["uvicorn", "backend.src.main:app", "--host", "0.0.0.0", "--port", "8006", "--reload"]
