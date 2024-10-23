@@ -23,5 +23,4 @@ COPY ./backend/src ./backend/src
 # Expose the desired port (change as needed)
 EXPOSE 8006
 
-# Command to run the application
-CMD ["uvicorn", "backend.src.main:main", "--host", "0.0.0.0", "--port", "8006"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8006", "--reload"]

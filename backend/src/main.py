@@ -7,7 +7,12 @@ import uvicorn
 import re
 import asyncio
 
-app = FastAPI()
+# Create FastAPI app instance
+app = FastAPI(
+    title="Dissertation Analysis API",
+    description="API for analyzing dissertations",
+    version="1.0.0"
+)
 
 
 # Add CORS middleware configuration
@@ -105,15 +110,9 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
     
     return response
 
+
 def main():
-    if asyncio.get_event_loop().is_running():
-        # If there's already a running event loop, use asyncio.create_task to avoid 'asyncio.run()' error
-        config = uvicorn.Config(app, host="0.0.0.0", port=8006)
-        server = uvicorn.Server(config)
-        asyncio.create_task(server.serve())
-    else:
-        # If no event loop is running, use asyncio.run() as usual
-        uvicorn.run(app, host="0.0.0.0", port=8006)
+    uvicorn.run(app, host="0.0.0.0", port=8006)
 
 if __name__ == "__main__":
     main()
