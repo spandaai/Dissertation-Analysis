@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware 
 import uvicorn
 import re
+import asyncio
 
 app = FastAPI()
 
@@ -105,7 +106,14 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
     return response
 
 def main():
-    uvicorn.run(app, host="0.0.0.0", port=8006)
+    if asyncio.get_event_loop().is_running():
+        # If there's already a running event loop, use asyncio.create_task to avoid 'asyncio.run()' error
+        config = uvicorn.Config(app, host="0.0.0.0", port=8006)
+        server = uvicorn.Server(config)
+        asyncio.create_task(server.serve())
+    else:
+        # If no event loop is running, use asyncio.run() as usual
+        uvicorn.run(app, host="0.0.0.0", port=8006)
 
 if __name__ == "__main__":
-    main()  # Call the main function if the script is run directly
+    main()
