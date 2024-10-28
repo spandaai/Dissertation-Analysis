@@ -19,7 +19,8 @@ setup(
         'Pillow==10.4.0',
         'requests==2.32.3',
         "python-dotenv",
-        "PyPDF2"
+        "PyPDF2",
+        "websockets"
     ],
     entry_points={
         'console_scripts': [

@@ -9,8 +9,10 @@ load_dotenv()
 
 # Access the environment variables
 ollama_url = os.getenv("OLLAMA_URL")
-ollama_model_env = os.getenv("OLLAMA_MODEL")
+# 'command-r' = os.getenv("OLLAMA_MODEL")
 verba_url = os.getenv("VERBA_URL")
+
+
 
 # Use the global ollama_url directly inside the function
 async def invoke_llm(system_prompt, user_prompt, ollama_model):
@@ -125,7 +127,7 @@ Topic: {topic}
             full_text_dict = await invoke_llm(
                 system_prompt=summarize_system_prompt,
                 user_prompt=summarize_user_prompt,
-                ollama_model=ollama_model_env 
+                ollama_model='command-r' 
             )
 
             summarized_chunk = full_text_dict["answer"]
@@ -185,7 +187,7 @@ Name should be returned exactly as written in the text
     full_text_dict = await invoke_llm(
         system_prompt=extract_name_system_prompt,
         user_prompt=extract_name_user_prompt,
-        ollama_model = ollama_model_env 
+        ollama_model = 'command-r' 
     )
 
     name = full_text_dict["answer"]
@@ -229,7 +231,7 @@ Topic should be returned exactly as written in the text
     full_text_dict = await invoke_llm(
         system_prompt=extract_topic_system_prompt,
         user_prompt=extract_topic_user_prompt,
-        ollama_model = ollama_model_env 
+        ollama_model = 'command-r' 
     )
 
     topic = full_text_dict["answer"]
@@ -271,7 +273,7 @@ Degree should be returned exactly as written in the text
     full_text_dict = await invoke_llm(
         system_prompt=extract_degree_system_prompt,
         user_prompt=extract_degree_user_prompt,
-        ollama_model =ollama_model_env 
+        ollama_model ='command-r' 
     )
     
     degree = full_text_dict["answer"]
@@ -302,7 +304,7 @@ spanda_score: <score (out of 5)>"""
     full_text_dict = await invoke_llm(
         system_prompt=scoring_agent_system_prompt,
         user_prompt=scoring_agent_user_prompt,
-        ollama_model = ollama_model_env 
+        ollama_model = 'command-r' 
     )
 
     score_for_criteria = full_text_dict["answer"]
