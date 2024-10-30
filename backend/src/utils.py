@@ -50,13 +50,10 @@ async def stream_llm(system_prompt: str, user_prompt: str, ollama_model: str) ->
 async def generate_from_image(image_data, prompt):
     url = f"{ollama_url}/api/generate"
     
-    # Convert the bytes to Base64 string
-    image_base64 = base64.b64encode(image_data).decode('utf-8')
-    
     data = {
         "model": "llava-llama3",
         "prompt": prompt,
-        "images": [image_base64],  # Send the Base64 encoded image
+        "images": [image_data],  # Send the Base64 encoded image
         "stream": False
     }
     

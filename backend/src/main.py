@@ -1,15 +1,14 @@
 from backend.src.utils import *
-from backend.src.dissertation_types import QueryRequest, QueryRequestThesis, ImageRequest
+from backend.src.dissertation_types import QueryRequestThesis, ImageRequest
 from backend.src.configs import *
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware 
 import uvicorn
 import re
-import json
-import httpx
 from PIL import Image
 import base64
-import io
+from io import BytesIO
+
 
 # Create FastAPI app instance
 app = FastAPI(
@@ -33,26 +32,39 @@ def read_root():
     return {"message": "Hello! This is the Dissertation Analysis! Dissertation Analysis app is running!"}
 
 
-# FastAPI endpoint to analyze the image
 @app.post("/analyze-image/")
 async def analyze_image(request: ImageRequest):
-    # Decode the Base64 string into bytes
-    image_data = base64.b64decode(request.image_data)
-    
     image_agent_user_prompt = """
     Provide a detailed factual summary of each image.
     Identify all visible objects, elements, and features of the image.
-    Describe the overall scene, composition, and setting depicted.
+    Describe the overall scene, composition, and setting depicted. 
     Avoid making inferences or interpretations beyond what can be directly observed.
     Present the summary in a clear and organized manner.
     """
-    
+
+    # Resize the image while maintaining aspect ratio
+    image = Image.open(BytesIO(base64.b64decode(request.image_data)))
+    max_size = 512
+    width, height = image.size
+    if max(width, height) > max_size:
+        if width > height:
+            new_width = max_size
+            new_height = int(height * (max_size / width))
+        else:
+            new_height = max_size
+            new_width = int(width * (max_size / height))
+        image = image.resize((new_width, new_height), resample=Image.BILINEAR)
+
+    # Convert the resized image back to base64
+    buffered = BytesIO()
+    image.save(buffered, format="PNG")
+    resized_image_data = base64.b64encode(buffered.getvalue()).decode("utf-8")
+
     # Call the generate_from_image function to get the analysis
-    image_analyzed = await generate_from_image(image_data, image_agent_user_prompt)
-    
+    image_analyzed = await generate_from_image(resized_image_data, image_agent_user_prompt)
+
     # Return the analysis result
     return {"image_analysis": image_analyzed['response']}
-
 
 @app.websocket("/ws/dissertation_analysis")
 async def websocket_dissertation(websocket: WebSocket):
