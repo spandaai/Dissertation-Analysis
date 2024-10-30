@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import requests
 import base64
+from typing import AsyncGenerator
 
 # Load environment variables from .env file
 load_dotenv()

@@ -7,7 +7,6 @@ import uvicorn
 import re
 import json
 import httpx
-from typing import AsyncGenerator
 from PIL import Image
 import base64
 import io
