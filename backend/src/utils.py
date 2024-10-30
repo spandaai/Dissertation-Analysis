@@ -14,7 +14,39 @@ ollama_url = os.getenv("OLLAMA_URL")
 # 'nemotron:70b' = os.getenv("OLLAMA_MODEL")
 verba_url = os.getenv("VERBA_URL")
 
-def generate_from_image(image_data, prompt):
+
+
+async def stream_llm(system_prompt: str, user_prompt: str, ollama_model: str) -> AsyncGenerator[str, None]:
+    """Stream responses from the LLM"""
+    prompt = f"""
+    {system_prompt}
+    {user_prompt}
+    """
+    payload = {
+        "prompt": prompt,
+        "model": ollama_model,
+        "options": {
+            "top_k": 1,
+            "top_p": 0,
+            "temperature": 0,
+            "seed": 100
+        },
+        "stream": True
+    }
+    
+    async with httpx.AsyncClient() as client:
+        async with client.stream('POST', f"{ollama_url}/api/generate", json=payload, timeout=None) as response:
+            async for line in response.aiter_lines():
+                if line:
+                    try:
+                        data = json.loads(line)
+                        if 'response' in data:
+                            yield data['response']
+                    except json.JSONDecodeError:
+                        continue
+
+
+async def generate_from_image(image_data, prompt):
     url = f"{ollama_url}/api/generate"
     
     # Convert the bytes to Base64 string

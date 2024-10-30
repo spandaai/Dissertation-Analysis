@@ -49,40 +49,10 @@ async def analyze_image(request: ImageRequest):
     """
     
     # Call the generate_from_image function to get the analysis
-    image_analyzed = generate_from_image(image_data, image_agent_user_prompt)
+    image_analyzed = await generate_from_image(image_data, image_agent_user_prompt)
     
     # Return the analysis result
     return {"image_analysis": image_analyzed['response']}
-
-
-async def stream_llm(system_prompt: str, user_prompt: str, ollama_model: str) -> AsyncGenerator[str, None]:
-    """Stream responses from the LLM"""
-    prompt = f"""
-    {system_prompt}
-    {user_prompt}
-    """
-    payload = {
-        "prompt": prompt,
-        "model": ollama_model,
-        "options": {
-            "top_k": 1,
-            "top_p": 0,
-            "temperature": 0,
-            "seed": 100
-        },
-        "stream": True
-    }
-    
-    async with httpx.AsyncClient() as client:
-        async with client.stream('POST', f"{ollama_url}/api/generate", json=payload, timeout=None) as response:
-            async for line in response.aiter_lines():
-                if line:
-                    try:
-                        data = json.loads(line)
-                        if 'response' in data:
-                            yield data['response']
-                    except json.JSONDecodeError:
-                        continue
 
 
 @app.websocket("/ws/dissertation_analysis")
