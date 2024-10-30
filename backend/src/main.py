@@ -1,5 +1,5 @@
 from backend.src.utils import *
-from backend.src.dissertation_types import QueryRequest, QueryRequestThesis
+from backend.src.dissertation_types import QueryRequest, QueryRequestThesis, ImageRequest
 from backend.src.configs import *
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware 
@@ -8,6 +8,9 @@ import re
 import json
 import httpx
 from typing import AsyncGenerator
+from PIL import Image
+import base64
+import io
 
 # Create FastAPI app instance
 app = FastAPI(
@@ -29,6 +32,27 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     return {"message": "Hello! This is the Dissertation Analysis! Dissertation Analysis app is running!"}
+
+
+# FastAPI endpoint to analyze the image
+@app.post("/analyze-image/")
+async def analyze_image(request: ImageRequest):
+    # Decode the Base64 string into bytes
+    image_data = base64.b64decode(request.image_data)
+    
+    image_agent_user_prompt = """
+    Provide a detailed factual summary of each image.
+    Identify all visible objects, elements, and features of the image.
+    Describe the overall scene, composition, and setting depicted.
+    Avoid making inferences or interpretations beyond what can be directly observed.
+    Present the summary in a clear and organized manner.
+    """
+    
+    # Call the generate_from_image function to get the analysis
+    image_analyzed = generate_from_image(image_data, image_agent_user_prompt)
+    
+    # Return the analysis result
+    return {"image_analysis": image_analyzed['response']}
 
 
 async def stream_llm(system_prompt: str, user_prompt: str, ollama_model: str) -> AsyncGenerator[str, None]:
@@ -125,7 +149,7 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
             async for chunk in stream_llm(
                 system_prompt=dissertation_system_prompt,
                 user_prompt=dissertation_user_prompt,
-                ollama_model='command-r'
+                ollama_model='nemotron:70b'
             ):
                 analysis_chunks.append(chunk)
                 await websocket.send_json({
@@ -168,7 +192,7 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
                 "feedback": analyzed_dissertation,
                 "score": score
             }
-
+        print(evaluation_results)
         # Send final results
         await websocket.send_json({
             "type": "complete",

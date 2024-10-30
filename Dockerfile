@@ -1,11 +1,9 @@
 # Use an official Python runtime as a parent image
 FROM python:3.10-slim
 
-# Set the working directory inside the container
-WORKDIR /app
+WORKDIR /dissertation
+COPY . /dissertation
 
-# Copy the contents of the backend directory into the container
-COPY backend/ /app/backend/
 COPY setup.py ./
 COPY requirements.txt ./
 

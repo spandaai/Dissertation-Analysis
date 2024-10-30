@@ -3,15 +3,39 @@ import httpx
 import os
 from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+import requests
+import base64
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Access the environment variables
 ollama_url = os.getenv("OLLAMA_URL")
-# 'command-r' = os.getenv("OLLAMA_MODEL")
+# 'nemotron:70b' = os.getenv("OLLAMA_MODEL")
 verba_url = os.getenv("VERBA_URL")
 
+def generate_from_image(image_data, prompt):
+    url = f"{ollama_url}/api/generate"
+    
+    # Convert the bytes to Base64 string
+    image_base64 = base64.b64encode(image_data).decode('utf-8')
+    
+    data = {
+        "model": "llava-llama3",
+        "prompt": prompt,
+        "images": [image_base64],  # Send the Base64 encoded image
+        "stream": False
+    }
+    
+    response = requests.post(url, json=data)
+    
+    try:
+        # Attempt to parse the response as JSON
+        return response.json()
+    except requests.exceptions.JSONDecodeError:
+        # If JSON decoding fails, print the response content for debugging
+        print("Failed to parse JSON response. Response content:")
+        raise
 
 
 # Use the global ollama_url directly inside the function
@@ -55,7 +79,6 @@ async def invoke_llm(system_prompt, user_prompt, ollama_model):
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         return {"error": str(e)}
-        
 
 def chunk_text(text, chunk_size=1000):
     """
@@ -119,7 +142,7 @@ Topic: {topic}
 - Do not miss crucial details, but significantly reduced length and condensed information with no formatting.
 - Maintain academic tone
 - Do NOT guess. Just summarize whatever is mentioned in the dissertation chunk. Do not add anything to the dissertation chunk, just summarize.
-- Provide ONLY the summarized text, no filler words or formatting. Avoid summarizing references.
+- Provide ONLY the summarized text, no filler words or formatting. Avoid summarizing references. Keep the summarization very concise and condensed.
 '''
 
         # Generate the response using the utility function
@@ -127,7 +150,7 @@ Topic: {topic}
             full_text_dict = await invoke_llm(
                 system_prompt=summarize_system_prompt,
                 user_prompt=summarize_user_prompt,
-                ollama_model='command-r' 
+                ollama_model='llama3.1' 
             )
 
             summarized_chunk = full_text_dict["answer"]
@@ -187,7 +210,7 @@ Name should be returned exactly as written in the text
     full_text_dict = await invoke_llm(
         system_prompt=extract_name_system_prompt,
         user_prompt=extract_name_user_prompt,
-        ollama_model = 'command-r' 
+        ollama_model = 'nemotron:70b' 
     )
 
     name = full_text_dict["answer"]
@@ -231,7 +254,7 @@ Topic should be returned exactly as written in the text
     full_text_dict = await invoke_llm(
         system_prompt=extract_topic_system_prompt,
         user_prompt=extract_topic_user_prompt,
-        ollama_model = 'command-r' 
+        ollama_model = 'nemotron:70b' 
     )
 
     topic = full_text_dict["answer"]
@@ -273,7 +296,7 @@ Degree should be returned exactly as written in the text
     full_text_dict = await invoke_llm(
         system_prompt=extract_degree_system_prompt,
         user_prompt=extract_degree_user_prompt,
-        ollama_model ='command-r' 
+        ollama_model ='nemotron:70b' 
     )
     
     degree = full_text_dict["answer"]
@@ -304,7 +327,7 @@ spanda_score: <score (out of 5)>"""
     full_text_dict = await invoke_llm(
         system_prompt=scoring_agent_system_prompt,
         user_prompt=scoring_agent_user_prompt,
-        ollama_model = 'command-r' 
+        ollama_model = 'nemotron:70b' 
     )
 
     score_for_criteria = full_text_dict["answer"]

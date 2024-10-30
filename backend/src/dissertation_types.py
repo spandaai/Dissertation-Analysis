@@ -269,3 +269,8 @@ class GetDocumentPayload(BaseModel):
 class ResetPayload(BaseModel):
     resetMode: str
     credentials: Credentials
+
+
+# Define a Pydantic model for the request payload
+class ImageRequest(BaseModel):
+    image_data: str  # Base64 encoded image string
