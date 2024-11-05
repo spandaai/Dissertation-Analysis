@@ -12,7 +12,7 @@ load_dotenv()
 
 # Access the environment variables
 ollama_url = os.getenv("OLLAMA_URL")
-# 'nemotron:70b' = os.getenv("OLLAMA_MODEL")
+# 'nemotron-mini:70b' = os.getenv("OLLAMA_MODEL")
 verba_url = os.getenv("VERBA_URL")
 
 
@@ -144,7 +144,7 @@ def chunk_text(text, chunk_size=1000):
     
     return chunks
 
-async def summarize(thesis, topic, rubric):
+async def summarize(thesis, topic):
     summarize_system_prompt = f"""
     You are an expert in summarizing academic dissertations, aiming to capture key details, names, dates, points, and arguments in a clear, brief summary. 
     Focus on each section's significance while preserving essential nuances. Avoid unnecessary details and introductory phrases.
@@ -233,14 +233,14 @@ The text contains the first few pages of a dissertation:
 - Only extract and send the name, nothing else.
 
 ## Output Format
-Name should be returned exactly as written in the text
+Name should be returned exactly as written in the text. If there is no name available, please return only "no_name_found".
 """
         
         # Generate the response using the utility function
     full_text_dict = await invoke_llm(
         system_prompt=extract_name_system_prompt,
         user_prompt=extract_name_user_prompt,
-        ollama_model = 'nemotron:70b' 
+        ollama_model = 'nemotron-mini' 
     )
 
     name = full_text_dict["answer"]
@@ -276,7 +276,7 @@ The text contains the first few pages of a dissertation:
 - Only extract and send the topic, nothing else.
 
 ## Output Format
-Topic should be returned exactly as written in the text
+Topic should be returned exactly as written in the text. If there is no topic available, please return only "no_topic_found".
 """
 
         
@@ -284,7 +284,7 @@ Topic should be returned exactly as written in the text
     full_text_dict = await invoke_llm(
         system_prompt=extract_topic_system_prompt,
         user_prompt=extract_topic_user_prompt,
-        ollama_model = 'nemotron:70b' 
+        ollama_model = 'nemotron-mini' 
     )
 
     topic = full_text_dict["answer"]
@@ -319,14 +319,14 @@ The text contains the first few pages of a dissertation:
 - Only extract and send the degree, nothing else.
 
 ## Output Format
-Degree should be returned exactly as written in the text
+Degree should be returned exactly as written in the text. If there is no degree available, please return only "no_degree_found".
 """
 
         # Generate the response using the utility function
     full_text_dict = await invoke_llm(
         system_prompt=extract_degree_system_prompt,
         user_prompt=extract_degree_user_prompt,
-        ollama_model ='nemotron:70b' 
+        ollama_model ='nemotron-mini' 
     )
     
     degree = full_text_dict["answer"]
@@ -357,7 +357,7 @@ spanda_score: <score (out of 5)>"""
     full_text_dict = await invoke_llm(
         system_prompt=scoring_agent_system_prompt,
         user_prompt=scoring_agent_user_prompt,
-        ollama_model = 'nemotron:70b' 
+        ollama_model = 'nemotron-mini' 
     )
 
     score_for_criteria = full_text_dict["answer"]

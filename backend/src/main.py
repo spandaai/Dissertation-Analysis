@@ -1,5 +1,5 @@
 from backend.src.utils import *
-from backend.src.dissertation_types import QueryRequestThesis, ImageRequest
+from backend.src.dissertation_types import QueryRequestThesisAndRubric, ImageRequest, QueryRequestThesis
 from backend.src.configs import *
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware 
@@ -66,6 +66,25 @@ async def analyze_image(request: ImageRequest):
     # Return the analysis result
     return {"image_analysis": image_analyzed['response']}
 
+
+@app.post("/api/pre_analyze")
+async def pre_analysis(request: QueryRequestThesis):
+    # Process non-streaming operations first
+    degree_of_student = await extract_degree(request.thesis)
+    name_of_author = await extract_name(request.thesis)
+    topic = await extract_topic(request.thesis)
+    summary_of_thesis = await summarize(request.thesis, topic)
+
+    response = {
+        "degree": degree_of_student,
+        "name": name_of_author,
+        "topic": topic,
+        "pre_analyzed_summary": summary_of_thesis
+    }
+    
+    return response
+
+
 @app.websocket("/ws/dissertation_analysis")
 async def websocket_dissertation(websocket: WebSocket):
     await websocket.accept()
@@ -73,13 +92,11 @@ async def websocket_dissertation(websocket: WebSocket):
     try:
         # Receive the initial data
         data = await websocket.receive_json()
-        request = QueryRequestThesis(**data)
-        
-        # Process non-streaming operations first
-        degree_of_student = await extract_degree(request.thesis)
-        name_of_author = await extract_name(request.thesis)
-        topic = await extract_topic(request.thesis)
-        summary_of_thesis = await summarize(request.thesis, topic, request.rubric)
+        request = QueryRequestThesisAndRubric(**data)
+        degree_of_student = request.pre_analysis.degree
+        name_of_author = request.pre_analysis.name
+        topic = request.pre_analysis.topic
+        summary_of_thesis = request.pre_analysis.pre_analyzed_summary
         
         # Send initial metadata
         await websocket.send_json({
@@ -130,7 +147,7 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
             async for chunk in stream_llm(
                 system_prompt=dissertation_system_prompt,
                 user_prompt=dissertation_user_prompt,
-                ollama_model='nemotron:70b'
+                ollama_model='llama3.1'
             ):
                 analysis_chunks.append(chunk)
                 await websocket.send_json({

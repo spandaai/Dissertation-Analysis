@@ -23,9 +23,20 @@ class RubricCriteria(TypedDict):
     score_explanation: str
     criteria_output: str
 
+# Define the structure for the pre-analysis dictionary
+class PreAnalysis(BaseModel):
+    degree: str
+    name: str
+    topic: str
+    pre_analyzed_summary: str
+
+class QueryRequestThesisAndRubric(BaseModel):
+    analyzed_thesis: str
+    rubric: Dict[str, RubricCriteria]
+    pre_analysis: PreAnalysis
+
 class QueryRequestThesis(BaseModel):
     thesis: str
-    rubric: Dict[str, RubricCriteria]     # rubric is now a dictionary with criteria name and explanation
 
 class ChunksPayload(BaseModel):
     uuid: str
