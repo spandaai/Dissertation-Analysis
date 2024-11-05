@@ -134,10 +134,9 @@ You will receive both the summarized dissertation and the criteria to analyze ho
 Please make sure that you critique the work heavily, including all improvements that can be made.
 
 DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO SCORES ASSOCIATED WITH IT.
-"""
+"""         
             if request.feedback:
-                feedback_from_user = await feedback_generation(request.feedback)
-                dissertation_user_prompt = dissertation_user_prompt + '\n' + "IMPORTANT: "+ feedback_from_user
+                dissertation_user_prompt = dissertation_user_prompt + '\n' + "IMPORTANT(The following feedback was provided by an expert. Consider the feedback properly, and ensure your evaluation follows this feedback): "+ request.feedback
             # Send criterion start marker
             await websocket.send_json({
                 "type": "criterion_start",
@@ -149,7 +148,7 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
             async for chunk in stream_llm(
                 system_prompt=dissertation_system_prompt,
                 user_prompt=dissertation_user_prompt,
-                ollama_model='llama3.1'
+                ollama_model='llama3.2'
             ):
                 analysis_chunks.append(chunk)
                 await websocket.send_json({
@@ -168,7 +167,8 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
                 analyzed_dissertation, 
                 criterion, 
                 explanation['score_explanation'], 
-                explanation['criteria_explanation']
+                explanation['criteria_explanation'],
+                request.feedback
             )
 
             # Extract score

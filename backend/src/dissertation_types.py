@@ -1,4 +1,4 @@
-from typing import Literal, Dict
+from typing import Literal, Dict, Optional
 from pydantic import BaseModel
 from enum import Enum
 from typing_extensions import TypedDict
@@ -34,7 +34,7 @@ class QueryRequestThesisAndRubric(BaseModel):
     analyzed_thesis: str
     rubric: Dict[str, RubricCriteria]
     pre_analysis: PreAnalysis
-    feedback: str = None
+    feedback: Optional[str] = None  # Makes feedback optional
 
 class QueryRequestThesis(BaseModel):
     thesis: str

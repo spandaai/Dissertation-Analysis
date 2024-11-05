@@ -12,7 +12,7 @@ load_dotenv()
 
 # Access the environment variables
 ollama_url = os.getenv("OLLAMA_URL")
-# 'nemotron-mini:70b' = os.getenv("OLLAMA_MODEL")
+# 'llama3.2:70b' = os.getenv("OLLAMA_MODEL")
 verba_url = os.getenv("VERBA_URL")
 
 
@@ -180,7 +180,7 @@ Topic: {topic}
             full_text_dict = await invoke_llm(
                 system_prompt=summarize_system_prompt,
                 user_prompt=summarize_user_prompt,
-                ollama_model='llama3.1' 
+                ollama_model='llama3.2' 
             )
 
             summarized_chunk = full_text_dict["answer"]
@@ -240,7 +240,7 @@ Name should be returned exactly as written in the text. If there is no name avai
     full_text_dict = await invoke_llm(
         system_prompt=extract_name_system_prompt,
         user_prompt=extract_name_user_prompt,
-        ollama_model = 'nemotron-mini' 
+        ollama_model = 'llama3.2' 
     )
 
     name = full_text_dict["answer"]
@@ -284,7 +284,7 @@ Topic should be returned exactly as written in the text. If there is no topic av
     full_text_dict = await invoke_llm(
         system_prompt=extract_topic_system_prompt,
         user_prompt=extract_topic_user_prompt,
-        ollama_model = 'nemotron-mini' 
+        ollama_model = 'llama3.2' 
     )
 
     topic = full_text_dict["answer"]
@@ -326,7 +326,7 @@ Degree should be returned exactly as written in the text. If there is no degree 
     full_text_dict = await invoke_llm(
         system_prompt=extract_degree_system_prompt,
         user_prompt=extract_degree_user_prompt,
-        ollama_model ='nemotron-mini' 
+        ollama_model ='llama3.2' 
     )
     
     degree = full_text_dict["answer"]
@@ -334,7 +334,7 @@ Degree should be returned exactly as written in the text. If there is no degree 
     
     return degree 
 
-async def scoring_agent(analysis, criteria, score_guidelines, criteria_guidelines):
+async def scoring_agent(analysis, criteria, score_guidelines, criteria_guidelines, feedback):
     scoring_agent_system_prompt = """You are a precise scoring agent that evaluates one dissertation criterion at a time. 
     Review the provided criterion analysis, match it to the scoring guidelines, and assign a score from 0 to 5, without justification, solely use the analysis for your justification. 
     Evaluate only the assigned criterion, using only the given analysis, and follow the guidelines exactly. 
@@ -350,6 +350,8 @@ async def scoring_agent(analysis, criteria, score_guidelines, criteria_guideline
 
 Your score will only be for the following criterion: {criteria}. Provide ONLY the score based on the analysis that has been done. Be very critical while providing the score.
 
+IMPORTANT(The following feedback was provided by an expert. Consider the feedback properly, and ensure your evaluation follows this feedback): {feedback}
+
 Required output format. It is extremely important for the score to be displayed in this exact format with no formatting and whitespaces:
 spanda_score: <score (out of 5)>"""
         
@@ -357,49 +359,9 @@ spanda_score: <score (out of 5)>"""
     full_text_dict = await invoke_llm(
         system_prompt=scoring_agent_system_prompt,
         user_prompt=scoring_agent_user_prompt,
-        ollama_model = 'nemotron-mini' 
+        ollama_model = 'llama3.2' 
     )
 
     score_for_criteria = full_text_dict["answer"]
     
     return score_for_criteria 
-
-
-
-async def feedback_generation(feedback):
-    feedback_generate_system_prompt = """
-- You are a feedback-to-instruction specialist
-- Your task is to convert user feedback into clear, specific instructions for an AI model (LLM) to follow
-- Your goal is to help incorporate the feedback effectively
-- Your approach should be:
- - Rewrite feedback into precise, actionable guidance for the LLM
- - Ensure each instruction is clear and implementable 
- - Make sure the model understands exactly how to adjust its output/behavior
-- Format requirements:
- - Use bullet points to separate each instruction
- - Emphasize critical actions or high-priority changes
- - Keep instructions concise and directive
-"""
-
-    feedback_generate_user_prompt = f"""
-- Convert this feedback into a set of clear, actionable instructions for an AI model to follow:
-{feedback}
-
-- Output a list of specific instructions the LLM can implement to address the feedback directly
-- Ensure each instruction is:
-  - Easy to understand
-  - Actionable
-"""
-        
-        # Generate the response using the utility function
-    full_text_dict = await invoke_llm(
-        system_prompt=feedback_generate_system_prompt,
-        user_prompt=feedback_generate_user_prompt,
-        ollama_model = 'nemotron-mini' 
-    )
-
-    feedback = full_text_dict["answer"]
-    print("THE feedback is: " + feedback)
-    # Final response with aggregated feedback and score
-    
-    return feedback 
