@@ -97,7 +97,6 @@ async def websocket_dissertation(websocket: WebSocket):
         name_of_author = request.pre_analysis.name
         topic = request.pre_analysis.topic
         summary_of_thesis = request.pre_analysis.pre_analyzed_summary
-        
         # Send initial metadata
         await websocket.send_json({
             "type": "metadata",
@@ -136,6 +135,9 @@ Please make sure that you critique the work heavily, including all improvements 
 
 DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO SCORES ASSOCIATED WITH IT.
 """
+            if request.feedback:
+                feedback_from_user = await feedback_generation(request.feedback)
+                dissertation_user_prompt = dissertation_user_prompt + '\n' + "IMPORTANT: "+ feedback_from_user
             # Send criterion start marker
             await websocket.send_json({
                 "type": "criterion_start",

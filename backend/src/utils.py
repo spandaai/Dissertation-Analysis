@@ -363,3 +363,43 @@ spanda_score: <score (out of 5)>"""
     score_for_criteria = full_text_dict["answer"]
     
     return score_for_criteria 
+
+
+
+async def feedback_generation(feedback):
+    feedback_generate_system_prompt = """
+- You are a feedback-to-instruction specialist
+- Your task is to convert user feedback into clear, specific instructions for an AI model (LLM) to follow
+- Your goal is to help incorporate the feedback effectively
+- Your approach should be:
+ - Rewrite feedback into precise, actionable guidance for the LLM
+ - Ensure each instruction is clear and implementable 
+ - Make sure the model understands exactly how to adjust its output/behavior
+- Format requirements:
+ - Use bullet points to separate each instruction
+ - Emphasize critical actions or high-priority changes
+ - Keep instructions concise and directive
+"""
+
+    feedback_generate_user_prompt = f"""
+- Convert this feedback into a set of clear, actionable instructions for an AI model to follow:
+{feedback}
+
+- Output a list of specific instructions the LLM can implement to address the feedback directly
+- Ensure each instruction is:
+  - Easy to understand
+  - Actionable
+"""
+        
+        # Generate the response using the utility function
+    full_text_dict = await invoke_llm(
+        system_prompt=feedback_generate_system_prompt,
+        user_prompt=feedback_generate_user_prompt,
+        ollama_model = 'nemotron-mini' 
+    )
+
+    feedback = full_text_dict["answer"]
+    print("THE feedback is: " + feedback)
+    # Final response with aggregated feedback and score
+    
+    return feedback 

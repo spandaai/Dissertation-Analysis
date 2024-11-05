@@ -34,6 +34,7 @@ class QueryRequestThesisAndRubric(BaseModel):
     analyzed_thesis: str
     rubric: Dict[str, RubricCriteria]
     pre_analysis: PreAnalysis
+    feedback: str = None
 
 class QueryRequestThesis(BaseModel):
     thesis: str
