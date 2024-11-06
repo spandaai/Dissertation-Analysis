@@ -15,6 +15,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
+ollama_model_for_analysis = os.getenv("OLLAMA_MODEL_FOR_ANALYSIS")
 
 # Add CORS middleware configuration
 app.add_middleware(
@@ -135,7 +136,7 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
             async for chunk in stream_llm(
                 system_prompt=dissertation_system_prompt,
                 user_prompt=dissertation_user_prompt,
-                ollama_model='llama3.2'
+                ollama_model=ollama_model_for_analysis
             ):
                 analysis_chunks.append(chunk)
                 await websocket.send_json({

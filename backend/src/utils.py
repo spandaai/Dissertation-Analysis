@@ -12,9 +12,11 @@ load_dotenv()
 
 # Access the environment variables
 ollama_url = os.getenv("OLLAMA_URL")
-# 'llama3.2:70b' = os.getenv("OLLAMA_MODEL")
 verba_url = os.getenv("VERBA_URL")
-
+ollama_model_for_summary = os.getenv("OLLAMA_MODEL_FOR_SUMMARY")
+ollama_model_for_extraction = os.getenv("OLLAMA_MODEL_FOR_EXTRACTION")
+ollama_model_for_image = os.getenv("OLLAMA_MODEL_FOR_IMAGE")
+ollama_model_for_analysis = os.getenv("OLLAMA_MODEL_FOR_ANALYSIS")
 
 
 async def stream_llm(system_prompt: str, user_prompt: str, ollama_model: str) -> AsyncGenerator[str, None]:
@@ -51,7 +53,7 @@ async def generate_from_image(image_data: bytes, prompt: str):
     # Encode the binary image data to Base64
     encoded_image = base64.b64encode(image_data).decode('utf-8')
     data = {
-        "model": "llava:34b",
+        "model": ollama_model_for_image,
         "prompt": prompt,
         "images": [encoded_image],  # Send the Base64 encoded image
         "stream": False
@@ -185,7 +187,7 @@ Topic: {topic}
             full_text_dict = await invoke_llm(
                 system_prompt=summarize_system_prompt,
                 user_prompt=summarize_user_prompt,
-                ollama_model='llama3.2' 
+                ollama_model=ollama_model_for_summary 
             )
 
             summarized_chunk = full_text_dict["answer"]
@@ -245,7 +247,7 @@ Name should be returned exactly as written in the text. If there is no name avai
     full_text_dict = await invoke_llm(
         system_prompt=extract_name_system_prompt,
         user_prompt=extract_name_user_prompt,
-        ollama_model = 'llama3.2' 
+        ollama_model = ollama_model_for_extraction 
     )
 
     name = full_text_dict["answer"]
@@ -289,7 +291,7 @@ Topic should be returned exactly as written in the text. If there is no topic av
     full_text_dict = await invoke_llm(
         system_prompt=extract_topic_system_prompt,
         user_prompt=extract_topic_user_prompt,
-        ollama_model = 'llama3.2' 
+        ollama_model = ollama_model_for_extraction
     )
 
     topic = full_text_dict["answer"]
@@ -331,7 +333,7 @@ Degree should be returned exactly as written in the text. If there is no degree 
     full_text_dict = await invoke_llm(
         system_prompt=extract_degree_system_prompt,
         user_prompt=extract_degree_user_prompt,
-        ollama_model ='llama3.2' 
+        ollama_model = ollama_model_for_extraction
     )
     
     degree = full_text_dict["answer"]
@@ -364,7 +366,7 @@ spanda_score: <score (out of 5)>"""
     full_text_dict = await invoke_llm(
         system_prompt=scoring_agent_system_prompt,
         user_prompt=scoring_agent_user_prompt,
-        ollama_model = 'llama3.2' 
+        ollama_model = ollama_model_for_analysis 
     )
 
     score_for_criteria = full_text_dict["answer"]
