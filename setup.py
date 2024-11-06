@@ -20,7 +20,9 @@ setup(
         'requests==2.32.3',
         "python-dotenv",
         "PyPDF2",
-        "websockets"
+        "websockets",
+        "python-multipart"
+
     ],
     entry_points={
         'console_scripts': [

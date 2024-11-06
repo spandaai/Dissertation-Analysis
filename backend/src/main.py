@@ -1,13 +1,11 @@
 from backend.src.utils import *
 from backend.src.dissertation_types import QueryRequestThesisAndRubric, ImageRequest, QueryRequestThesis
 from backend.src.configs import *
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware 
 import uvicorn
 import re
-from PIL import Image
-import base64
-from io import BytesIO
+import fitz
 
 
 # Create FastAPI app instance
@@ -32,40 +30,29 @@ def read_root():
     return {"message": "Hello! This is the Dissertation Analysis! Dissertation Analysis app is running!"}
 
 
-@app.post("/analyze-image/")
-async def analyze_image(request: ImageRequest):
-    image_agent_user_prompt = """
-    Provide a detailed factual summary of each image.
-    Identify all visible objects, elements, and features of the image.
-    Describe the overall scene, composition, and setting depicted. 
-    Avoid making inferences or interpretations beyond what can be directly observed.
-    Present the summary in a clear and organized manner.
-    """
+@app.post("/analyze-pdf/")
+async def analyze_pdf(pdf_file: UploadFile = File(...)):
+    # Open the PDF file
+    pdf_bytes = await pdf_file.read()
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    full_text = []
 
-    # Resize the image while maintaining aspect ratio
-    image = Image.open(BytesIO(base64.b64decode(request.image_data)))
-    max_size = 512
-    width, height = image.size
-    if max(width, height) > max_size:
-        if width > height:
-            new_width = max_size
-            new_height = int(height * (max_size / width))
+    for page_num in range(doc.page_count):
+        page = doc[page_num]
+        text = page.get_text()
+        if text.strip():
+            full_text.append(text)
         else:
-            new_height = max_size
-            new_width = int(width * (max_size / height))
-        image = image.resize((new_width, new_height), resample=Image.BILINEAR)
+            for img_index, img in enumerate(page.get_images(full=True)):
+                xref = img[0]
+                base_image = doc.extract_image(xref)
+                image_bytes = base_image["image"]
+                # Analyze the image using the analyze_image function
+                image_analysis = await analyze_image(image_bytes)
+                full_text.append(f"Image {img_index + 1} Analysis: {image_analysis.get('response', '')}")
 
-    # Convert the resized image back to base64
-    buffered = BytesIO()
-    image.save(buffered, format="PNG")
-    resized_image_data = base64.b64encode(buffered.getvalue()).decode("utf-8")
-
-    # Call the generate_from_image function to get the analysis
-    image_analyzed = await generate_from_image(resized_image_data, image_agent_user_prompt)
-
-    # Return the analysis result
-    return {"image_analysis": image_analyzed['response']}
-
+    # Combine all text and analyses
+    return {"text_and_image_analysis": "\n".join(full_text)}
 
 @app.post("/api/pre_analyze")
 async def pre_analysis(request: QueryRequestThesis):

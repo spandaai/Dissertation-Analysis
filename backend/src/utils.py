@@ -3,7 +3,7 @@ import httpx
 import os
 from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-import requests
+import aiohttp
 import base64
 from typing import AsyncGenerator
 
@@ -47,25 +47,30 @@ async def stream_llm(system_prompt: str, user_prompt: str, ollama_model: str) ->
                         continue
 
 
-async def generate_from_image(image_data, prompt):
-    url = f"{ollama_url}/api/generate"
-    
+async def generate_from_image(image_data: bytes, prompt: str):
+    # Encode the binary image data to Base64
+    encoded_image = base64.b64encode(image_data).decode('utf-8')
     data = {
-        "model": "llava-llama3",
+        "model": "llava:34b",
         "prompt": prompt,
-        "images": [image_data],  # Send the Base64 encoded image
+        "images": [encoded_image],  # Send the Base64 encoded image
         "stream": False
     }
-    
-    response = requests.post(url, json=data)
-    
-    try:
-        # Attempt to parse the response as JSON
-        return response.json()
-    except requests.exceptions.JSONDecodeError:
-        # If JSON decoding fails, print the response content for debugging
-        print("Failed to parse JSON response. Response content:")
-        raise
+    async with aiohttp.ClientSession() as session:
+        async with session.post(f"{ollama_url}/api/generate", json=data) as response:
+            if response.status == 200:
+                return await response.json()
+            else:
+                raise Exception("Image analysis failed.")
+
+async def analyze_image(image_data: bytes):
+    image_agent_user_prompt = """
+    Analyze the following image and provide a report detailing the features present. 
+    Include a clear description of what is depicted in the image without any interpretation.
+    Please keep the summarization below 200 words. Describe the intent of the image, not the details of what is present.
+    The summarization needs to be brief and short.
+    """
+    return await generate_from_image(image_data, image_agent_user_prompt)
 
 
 # Use the global ollama_url directly inside the function
