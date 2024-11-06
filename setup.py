@@ -21,7 +21,8 @@ setup(
         "python-dotenv",
         "PyPDF2",
         "websockets",
-        "python-multipart"
+        "python-multipart",
+        "python-docx"
 
     ],
     entry_points={
