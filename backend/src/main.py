@@ -30,7 +30,7 @@ def read_root():
     return {"message": "Hello! This is the Dissertation Analysis! Dissertation Analysis app is running!"}
 
 
-@app.post("/analyze-pdf/")
+@app.post("/extract_text_from_pdf_and_analyze_images")
 async def analyze_pdf(pdf_file: UploadFile = File(...)):
     # Open the PDF file
     pdf_bytes = await pdf_file.read()
