@@ -31,7 +31,6 @@ class PreAnalysis(BaseModel):
     pre_analyzed_summary: str
 
 class QueryRequestThesisAndRubric(BaseModel):
-    analyzed_thesis: str
     rubric: Dict[str, RubricCriteria]
     pre_analysis: PreAnalysis
     feedback: Optional[str] = None  # Makes feedback optional
