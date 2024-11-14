@@ -11,6 +11,11 @@ import logging
 from io import BytesIO
 from docx import Document
 from docx.parts.image import ImagePart
+import io
+import PyPDF2
+from pdf2image import convert_from_bytes
+from PIL import Image
+from typing import Dict
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -135,7 +140,7 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
             async for chunk in stream_llm(
                 system_prompt=dissertation_system_prompt,
                 user_prompt=dissertation_user_prompt,
-                ollama_model=ollama_model_for_analysis
+                model_type=ModelType.ANALYSIS
             ):
                 analysis_chunks.append(chunk)
                 await websocket.send_json({
@@ -206,33 +211,66 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
 ###################################################HELPER FUNCTIONS###################################################
 
 
-async def process_pdf(pdf_file: UploadFile):
+async def process_pdf(pdf_file: UploadFile) -> Dict[str, str]:
+    """
+    Process a PDF file to extract text and analyze images after page 6.
+    
+    Args:
+        pdf_file (UploadFile): The uploaded PDF file to process
+        
+    Returns:
+        Dict[str, str]: Dictionary containing the combined text and image analysis
+    """
     pdf_bytes = await pdf_file.read()
-    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     final_text = ""
-
-    for page_num in range(doc.page_count):
-        page = doc[page_num]
-        page_text = extract_and_clean_text_from_page(page)
-        final_text += f"\n\n{page_text}"
-
-        for img_index, img in enumerate(page.get_images(full=True)):
-            try:
-                xref = img[0]
-                base_image = doc.extract_image(xref)
-                image_bytes = base_image["image"]
+    
+    # Process text using PyPDF2
+    pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
+    
+    # Extract text from all pages
+    for page_num in range(len(pdf_reader.pages)):
+        page = pdf_reader.pages[page_num]
+        text = page.extract_text()
+        if text:
+            final_text += f"\n\n{clean_text(text)}"
+    
+    # Process images only after page 6
+    if len(pdf_reader.pages) > 6:
+        try:
+            # Convert PDF pages to images
+            images = convert_from_bytes(
+                pdf_bytes,
+                first_page=7,  # Start from page 7 (after page 6)
+                last_page=len(pdf_reader.pages)
+            )
+            
+            # Process each image
+            for i, image in enumerate(images, start=7):
+                try:
+                    # Convert PIL Image to bytes
+                    img_byte_arr = io.BytesIO()
+                    image.save(img_byte_arr, format='PNG')
+                    img_byte_arr = img_byte_arr.getvalue()
+                    
+                    # Analyze image
+                    image_analysis = await analyze_image(img_byte_arr)
+                    
+                    if isinstance(image_analysis, dict) and 'response' in image_analysis:
+                        analysis_result = image_analysis['response'].strip()
+                        # print(analysis_result)
+                        print("################################################################################################################")
+                        if analysis_result:
+                            final_text += f"\n\nImage Analysis: {analysis_result}"
                 
-                # Convert image bytes to proper format and analyze
-                image_analysis = await analyze_image(image_bytes)
-                if isinstance(image_analysis, dict) and 'response' in image_analysis:
-                    analysis_result = image_analysis['response'].strip()
-                    if analysis_result:
-                        final_text += f"\n\nImage {img_index + 1} Analysis: {analysis_result}"
-            except Exception as e:
-                logger.error(f"Failed to analyze image {img_index + 1} on page {page_num + 1}: {e}")
-
+                except Exception as e:
+                    logger.error(f"Failed to analyze image on page {i}: {e}")
+        
+        except Exception as e:
+            logger.error(f"Failed to convert PDF pages to images: {e}")
+    
     logger.info(f"Preview of cleaned text and images (first 500 chars): {final_text[:500]}")
     return {"text_and_image_analysis": final_text.strip()}
+
 
 async def process_docx(docx_file: UploadFile):
     docx_bytes = await docx_file.read()

@@ -31,8 +31,8 @@ async def generate_from_image(image_data: bytes, prompt: str):
             async with session.post(f"{ollama_url}/api/generate", json=data) as response:
                 if response.status == 200:
                     result = await response.json()
-                    print("########################################")
-                    print(result)
+                    # print("########################################")
+                    # print(result)
                     return result
                 else:
                     error_text = await response.text()
