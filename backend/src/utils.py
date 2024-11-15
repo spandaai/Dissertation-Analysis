@@ -118,22 +118,33 @@ async def stream_llm(
 ################################################VLLM GENERATION FUNCTIONS START###############################################
 ##############################################################################################################################
 
-
-async def stream_llm_vllm(system_prompt: str, user_prompt: str, ollama_model: str) -> AsyncGenerator[str, None]:
-    """Stream responses from the LLM for the dissertation analysis."""
+async def stream_llm_vllm(
+    system_prompt: str, 
+    user_prompt: str, 
+    ollama_model: str, 
+    temperature: float = 0.0,   # No randomness in token selection
+    top_p: float = 0.8,       # Only the single most probable token is considered
+    top_k: int = 5,          # Limits choice to only the top 1 token
+    seed: int = 42             # Fixed seed for reproducibility
+) -> AsyncGenerator[str, None]:
+    """Stream responses from the LLM for the dissertation analysis with sampling parameters."""
     
-    # Define the payload for the request
+    # Define the payload for the request with sampling parameters
     payload = {
         "model": ollama_model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
+        "temperature": temperature,
+        "top_p": top_p,
+        "top_k": top_k,
+        "seed": seed,
         "stream": True
     }
 
     async with httpx.AsyncClient() as client:
-        # Send the POST request to the Ollama API
+        # Send the POST request to the API and open the stream
         async with client.stream('POST', vllm_url, json=payload, timeout=None) as response:
             # Check for a successful response
             if response.status_code == 200:
@@ -160,26 +171,40 @@ async def stream_llm_vllm(system_prompt: str, user_prompt: str, ollama_model: st
                 print(f"Request failed with status code {response.status_code}")
 
 
-async def invoke_llm_vllm(system_prompt: str, user_prompt: str, ollama_model: str) -> dict:
-    """Invoke the LLM and return the final non-streaming response."""
+async def invoke_llm_vllm(
+    system_prompt: str, 
+    user_prompt: str, 
+    ollama_model: str, 
+    temperature: float = 0.0, 
+    top_p: float = 0.8, 
+    top_k: int = 5, 
+    seed: int = 42
+) -> dict:
+    """Invoke the LLM with specified sampling parameters and return the final non-streaming response."""
+    
+    # Create the full prompt
     prompt = f"""
     {system_prompt}
     {user_prompt}
     """
     
-    # Define the payload for the request
+    # Define the payload for the request with sampling parameters
     payload = {
         "model": ollama_model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
+        "temperature": temperature,
+        "top_p": top_p,
+        "top_k": top_k,
+        "seed": seed,
         "stream": False  # Set stream to False for non-streaming
     }
     
     try:
         async with httpx.AsyncClient() as client:
-            # Send the POST request to the Ollama API
+            # Send the POST request to the API
             response = await client.post(vllm_url, json=payload, timeout=None)
             
             # Check for a successful response
