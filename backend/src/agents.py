@@ -1,6 +1,12 @@
 import os
 from dotenv import load_dotenv
 from backend.src.utils import *
+import logging
+import asyncio
+from typing import List
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -13,23 +19,39 @@ vllm_url_for_analysis = os.getenv("VLLM_URL_FOR_ANALYSIS")
 vllm_url_for_scoring = os.getenv("VLLM_URL_FOR_SCORING")
 vllm_url_for_extraction = os.getenv("VLLM_URL_FOR_EXTRACTION")
 
+from typing import List
+import asyncio
+import logging
 
-async def summarize_and_analyze_agent(thesis, topic):
-    summarize_system_prompt = f"""
-    You are an expert in summarizing academic dissertations, aiming to capture key details, names, dates, points, and arguments in a clear, brief summary. 
-    Focus on each section's significance while preserving essential nuances. Avoid unnecessary details and introductory phrases.
+logger = logging.getLogger(__name__)
+
+async def process_chunks_in_batch(chunks: List[str], topic: str, system_prompt: str, batch_size: int = 10) -> List[str]:
     """
-    chunks = chunk_text(thesis, chunk_size=1000)
+    Process text chunks in batches for summarization.
+    
+    Args:
+        chunks: List of text chunks to summarize
+        topic: The thesis topic for context
+        system_prompt: The system prompt for the LLM
+        batch_size: Number of chunks to process in each batch
+        
+    Returns:
+        List of summarized chunks
+    """
     summarized_chunks = []
-    for chunk in chunks:
-        summarize_user_prompt = f'''
+    
+    for i in range(0, len(chunks), batch_size):
+        batch = chunks[i:i + batch_size]
+        batch_tasks = []
+        
+        # Create tasks for each chunk in the batch
+        for chunk in batch:
+            user_prompt = f'''
 # Input Content
 ## Dissertation Segment
 {chunk[0]}
-
 ## Context
 Topic: {topic}
-
 # Summarization Instructions
 1. Create a concise summary that:
    - Captures essential arguments
@@ -37,36 +59,72 @@ Topic: {topic}
    - Maintains logical flow
    - Connects to overall topic: {topic}
    - Acknowledges this is part of a larger work
-
 # Output Requirements
 - Do not miss crucial details, but significantly reduced length and condensed information with no formatting.
 - Maintain academic tone
 - Do NOT guess. Just summarize whatever is mentioned in the dissertation chunk. Do not add anything to the dissertation chunk, just summarize.
 - Provide ONLY the summarized text, no filler words or formatting. Avoid summarizing references. Keep the summarization very concise and condensed.
 '''
-
-        # Generate the response using the utility function
-        try:
-            full_text_dict = await invoke_llm(
-                system_prompt=summarize_system_prompt,
-                user_prompt=summarize_user_prompt,
+            # Create coroutine for this chunk
+            task = asyncio.create_task(invoke_llm(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
                 model_type=ModelType.SUMMARY
-            )
-
-            summarized_chunk = full_text_dict["answer"]
-            print(summarized_chunk)
-            summarized_chunks.append(summarized_chunk)
-
+            ))
+            batch_tasks.append(task)
+        
+        try:
+            # Process batch concurrently
+            batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+            
+            # Process results and handle any errors
+            for result in batch_results:
+                if isinstance(result, Exception):
+                    logger.error(f"Failed to summarize chunk: {result}")
+                    summarized_chunks.append("")
+                else:
+                    summarized_chunks.append(result["answer"])
+                    print(result["answer"])
+                    print("################################################")
+                    
         except Exception as e:
-            print(f"Error during LLM invocation: {e}")
-            summarized_chunks.append("")  # Append an empty string if there's an error
+            logger.error(f"Failed to process batch: {e}")
+            # Add empty strings for the entire failed batch
+            summarized_chunks.extend([""] * len(batch_tasks))
+    
+    return summarized_chunks
 
+async def summarize_and_analyze_agent(thesis: str, topic: str) -> str:
+    """
+    Summarize and analyze a thesis document.
+    
+    Args:
+        thesis: The full thesis text
+        topic: The thesis topic
+        
+    Returns:
+        A final summary of the thesis
+    """
+    summarize_system_prompt = """
+    You are an expert in summarizing academic dissertations, aiming to capture key details, names, dates, points, and arguments in a clear, brief summary. 
+    Focus on each section's significance while preserving essential nuances. Avoid unnecessary details and introductory phrases.
+    """
+    
+    # Split text into chunks
+    chunks = chunk_text(thesis, chunk_size=1000)
+    
+    # Process chunks in batches
+    summarized_chunks = await process_chunks_in_batch(
+        chunks=chunks,
+        topic=topic,
+        system_prompt=summarize_system_prompt,
+        batch_size=10
+    )
+    
     # Combine all summarized chunks into a final summary
-    final_summary = " ".join(summarized_chunks).replace("\n", "")
-
-    response = final_summary
-
-    return response
+    final_summary = " ".join(filter(None, summarized_chunks)).replace("\n", "")
+    
+    return final_summary
 
 async def extract_name_agent(dissertation):
     

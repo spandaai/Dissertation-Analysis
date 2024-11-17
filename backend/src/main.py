@@ -15,7 +15,8 @@ import io
 import PyPDF2
 from pdf2image import convert_from_bytes
 from PIL import Image
-from typing import Dict
+from typing import Dict, Tuple
+import asyncio
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -57,20 +58,32 @@ async def analyze_file(file: UploadFile = File(...)):
 
 @app.post("/api/pre_analyze")
 async def pre_analysis(request: QueryRequestThesis):
-    # Process non-streaming operations first
-    degree_of_student = await extract_degree_agent(request.thesis)
-    name_of_author = await extract_name_agent(request.thesis)
-    topic = await extract_topic_agent(request.thesis)
-    summary_of_thesis = await summarize_and_analyze_agent(request.thesis, topic)
+    try:
+        # Process initial agents in batch
+        initial_results = await process_initial_agents(request.thesis)
+        
+        # Use the topic from batch results for summary
+        summary_of_thesis = await summarize_and_analyze_agent(
+            request.thesis, 
+            initial_results["topic"]
+        )
+        
+        response = {
+            "degree": initial_results["degree"],
+            "name": initial_results["name"],
+            "topic": initial_results["topic"],
+            "pre_analyzed_summary": summary_of_thesis
+        }
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Failed to pre-analyze thesis: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to pre-analyze thesis"
+        )
 
-    response = {
-        "degree": degree_of_student,
-        "name": name_of_author,
-        "topic": topic,
-        "pre_analyzed_summary": summary_of_thesis
-    }
-    
-    return response
 
 @app.websocket("/ws/dissertation_analysis")
 async def websocket_dissertation(websocket: WebSocket):
@@ -206,15 +219,42 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
 ###################################################HELPER FUNCTIONS###################################################
 
 
+async def process_images_in_batch(images_data: List[Tuple[int, bytes]], batch_size: int = 10) -> List[Tuple[int, str]]:
+    """
+    Process multiple images in batches asynchronously.
+    
+    Args:
+        images_data: List of tuples containing (page_number, image_bytes)
+        batch_size: Number of images to process in each batch
+        
+    Returns:
+        List of tuples containing (page_number, analysis_result)
+    """
+    results = []
+    
+    for i in range(0, len(images_data), batch_size):
+        batch = images_data[i:i + batch_size]
+        batch_tasks = [analyze_image(img_bytes) for _, img_bytes in batch]
+        
+        # Process batch concurrently
+        batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+        
+        # Pair results with their page numbers
+        for (page_num, _), result in zip(batch, batch_results):
+            if isinstance(result, Exception):
+                logger.error(f"Failed to analyze image on page {page_num}: {result}")
+                continue
+                
+            if isinstance(result, dict) and 'response' in result:
+                analysis_result = result['response'].strip()
+                if analysis_result:
+                    results.append((page_num, analysis_result))
+    
+    return results
+
 async def process_pdf(pdf_file: UploadFile) -> Dict[str, str]:
     """
     Process a PDF file to extract text and analyze images after page 6.
-    
-    Args:
-        pdf_file (UploadFile): The uploaded PDF file to process
-        
-    Returns:
-        Dict[str, str]: Dictionary containing the combined text and image analysis
     """
     pdf_bytes = await pdf_file.read()
     final_text = ""
@@ -235,67 +275,64 @@ async def process_pdf(pdf_file: UploadFile) -> Dict[str, str]:
             # Convert PDF pages to images
             images = convert_from_bytes(
                 pdf_bytes,
-                first_page=7,  # Start from page 7 (after page 6)
+                first_page=7,
                 last_page=len(pdf_reader.pages)
             )
             
-            # Process each image
+            # Prepare batch data
+            images_data = []
             for i, image in enumerate(images, start=7):
-                try:
-                    # Convert PIL Image to bytes
-                    img_byte_arr = io.BytesIO()
-                    image.save(img_byte_arr, format='PNG')
-                    img_byte_arr = img_byte_arr.getvalue()
-                    
-                    # Analyze image
-                    image_analysis = await analyze_image(img_byte_arr)
-                    
-                    if isinstance(image_analysis, dict) and 'response' in image_analysis:
-                        analysis_result = image_analysis['response'].strip()
-                        print(analysis_result)
-                        print("################################################################################################################")
-                        if analysis_result:
-                            final_text += f"\n\nImage Analysis: {analysis_result}"
+                img_byte_arr = io.BytesIO()
+                image.save(img_byte_arr, format='PNG')
+                images_data.append((i, img_byte_arr.getvalue()))
+            
+            # Process images in batches
+            analysis_results = await process_images_in_batch(images_data)
+            
+            # Add results to final text
+            for page_num, analysis_result in analysis_results:
+                final_text += f"\n\nImage Analysis (Page {page_num}): {analysis_result}"
                 
-                except Exception as e:
-                    logger.error(f"Failed to analyze image on page {i}: {e}")
-        
         except Exception as e:
-            logger.error(f"Failed to convert PDF pages to images: {e}")
+            logger.error(f"Failed to process PDF images: {e}")
     
     logger.info(f"Preview of cleaned text and images (first 500 chars): {final_text[:500]}")
     return {"text_and_image_analysis": final_text.strip()}
 
-
 async def process_docx(docx_file: UploadFile):
+    """
+    Process a DOCX file with batch image processing.
+    """
     docx_bytes = await docx_file.read()
     docx_stream = BytesIO(docx_bytes)
     document = Document(docx_stream)
     final_text = ""
 
+    # Process text
     for paragraph in document.paragraphs:
         text = paragraph.text.strip()
         if text:
             cleaned_text = re.sub(r'\s+', ' ', text)
             final_text += f" {cleaned_text}"
 
-    # Process images in DOCX
-    for rel in document.part.rels.values():
+    # Prepare images for batch processing
+    images_data = []
+    for idx, rel in enumerate(document.part.rels.values()):
         if isinstance(rel.target_part, ImagePart):
             try:
-                image_bytes = rel.target_part.blob
-                
-                # Convert image bytes to proper format and analyze
-                image_analysis = await analyze_image(image_bytes)
-                if isinstance(image_analysis, dict) and 'response' in image_analysis:
-                    analysis_result = image_analysis['response'].strip()
-                    if analysis_result:
-                        final_text += f"\n\nImage Analysis: {analysis_result}"
+                images_data.append((idx, rel.target_part.blob))
             except Exception as e:
-                logger.error(f"Failed to analyze DOCX image: {e}")
+                logger.error(f"Failed to extract DOCX image {idx}: {e}")
+
+    # Process images in batches
+    if images_data:
+        analysis_results = await process_images_in_batch(images_data)
+        for idx, analysis_result in analysis_results:
+            final_text += f"\n\nImage Analysis (Image {idx + 1}): {analysis_result}"
 
     cleaned_text = clean_text(final_text)
     return {"text_and_image_analysis": cleaned_text.strip()}
+
 
 def extract_and_clean_text_from_page(page) -> str:
     text_blocks = []
@@ -316,6 +353,50 @@ def clean_text(text: str) -> str:
     text = re.sub(r'\b\d+\b(?!\s*[a-zA-Z])', '', text)
     text = re.sub(r'[\r\n\t\f]+', ' ', text)
     return re.sub(r'\s+', ' ', text).strip()
+
+
+
+async def process_initial_agents(thesis_text: str) -> Dict[str, str]:
+    """
+    Process the initial set of agents concurrently in a batch.
+    
+    Args:
+        thesis_text: The thesis text to analyze
+        
+    Returns:
+        Dictionary containing results from all initial agents
+    """
+    # Create tasks for initial agents
+    tasks = [
+        extract_degree_agent(thesis_text),
+        extract_name_agent(thesis_text),
+        extract_topic_agent(thesis_text)
+    ]
+    
+    # Execute all tasks concurrently
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Process results and handle any errors
+    degree, name, topic = None, None, None
+    
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            logger.error(f"Initial agent {i} failed with error: {result}")
+            continue
+            
+        # Assign results based on index
+        if i == 0:
+            degree = result
+        elif i == 1:
+            name = result
+        elif i == 2:
+            topic = result
+    
+    return {
+        "degree": degree or "Not found",
+        "name": name or "Not found",
+        "topic": topic or "Not found"
+    }
 
 ###################################################HELPER FUNCTIONS###################################################
 ###################################################HELPER FUNCTIONS###################################################
