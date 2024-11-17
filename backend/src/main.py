@@ -28,10 +28,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-ollama_model_for_analysis = os.getenv("OLLAMA_MODEL_FOR_ANALYSIS")
-ollama_model_for_image = os.getenv("OLLAMA_MODEL_FOR_IMAGE")
-ollama_url = os.getenv("OLLAMA_URL")
-
 # Add CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
@@ -61,7 +57,6 @@ async def analyze_file(file: UploadFile = File(...)):
 
 @app.post("/api/pre_analyze")
 async def pre_analysis(request: QueryRequestThesis):
-    print(request.thesis)
     # Process non-streaming operations first
     degree_of_student = await extract_degree_agent(request.thesis)
     name_of_author = await extract_name_agent(request.thesis)
@@ -253,11 +248,11 @@ async def process_pdf(pdf_file: UploadFile) -> Dict[str, str]:
                     img_byte_arr = img_byte_arr.getvalue()
                     
                     # Analyze image
-                    image_analysis = await analyze_image(img_byte_arr)
+                    image_analysis = await analyze_image_vllm(img_byte_arr)
                     
                     if isinstance(image_analysis, dict) and 'response' in image_analysis:
                         analysis_result = image_analysis['response'].strip()
-                        # print(analysis_result)
+                        print(analysis_result)
                         print("################################################################################################################")
                         if analysis_result:
                             final_text += f"\n\nImage Analysis: {analysis_result}"

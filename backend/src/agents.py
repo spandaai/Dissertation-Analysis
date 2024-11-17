@@ -7,10 +7,11 @@ load_dotenv()
 
 # Access the environment variables
 ollama_url = os.getenv("OLLAMA_URL")
-verba_url = os.getenv("VERBA_URL")
-ollama_model_for_summary = os.getenv("OLLAMA_MODEL_FOR_SUMMARY")
-ollama_model_for_extraction = os.getenv("OLLAMA_MODEL_FOR_EXTRACTION")
-ollama_model_for_analysis = os.getenv("OLLAMA_MODEL_FOR_ANALYSIS")
+
+vllm_url_for_summary = os.getenv("VLLM_URL_FOR_SUMMARY")
+vllm_url_for_analysis = os.getenv("VLLM_URL_FOR_ANALYSIS")
+vllm_url_for_scoring = os.getenv("VLLM_URL_FOR_SCORING")
+vllm_url_for_extraction = os.getenv("VLLM_URL_FOR_EXTRACTION")
 
 
 async def summarize_and_analyze_agent(thesis, topic):

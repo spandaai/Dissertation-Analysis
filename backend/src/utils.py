@@ -12,10 +12,16 @@ load_dotenv()
 
 # Access the environment variables
 ollama_url = os.getenv("OLLAMA_URL")
-vllm_url = os.getenv("VLLM_URL")
-
+vllm_url = os.getenv("VLLM_URL_FOR_ANALYSIS")
 
 class ModelType(Enum):
+    ANALYSIS = "ANALYSIS"
+    EXTRACTION = "EXTRACTION"
+    SUMMARY = "SUMMARY"
+    IMAGE = "IMAGE"
+    SCORING = "SCORING"
+
+class UrlType(Enum):
     ANALYSIS = "ANALYSIS"
     EXTRACTION = "EXTRACTION"
     SUMMARY = "SUMMARY"
@@ -25,13 +31,20 @@ class ModelType(Enum):
 class EnvConfig:
     def __init__(self):
         # VLLM Configuration
-        self.vllm_url = os.getenv("VLLM_URL")
+        self.vllm_url = os.getenv("VLLM_MODEL_FOR_ANALYSIS")
         self.vllm_models = {
             ModelType.ANALYSIS: os.getenv("VLLM_MODEL_FOR_ANALYSIS"),
             ModelType.EXTRACTION: os.getenv("VLLM_MODEL_FOR_EXTRACTION"),
             ModelType.SUMMARY: os.getenv("VLLM_MODEL_FOR_SUMMARY"),
             ModelType.IMAGE: os.getenv("VLLM_MODEL_FOR_IMAGE"),
             ModelType.SCORING: os.getenv("VLLM_MODEL_FOR_SCORING"),
+        }
+        self.vllm_urls = {
+            UrlType.ANALYSIS: os.getenv("VLLM_URL_FOR_ANALYSIS"),
+            UrlType.EXTRACTION: os.getenv("VLLM_URL_FOR_EXTRACTION"),
+            UrlType.SUMMARY: os.getenv("VLLM_URL_FOR_SUMMARY"),
+            UrlType.IMAGE: os.getenv("VLLM_URL_FOR_IMAGE"),
+            UrlType.SCORING: os.getenv("VLLM_URL_FOR_SCORING"),
         }
         
         # Ollama Configuration
@@ -42,12 +55,12 @@ class EnvConfig:
             ModelType.SUMMARY: os.getenv("OLLAMA_MODEL_FOR_SUMMARY"),
             ModelType.IMAGE: os.getenv("OLLAMA_MODEL_FOR_IMAGE"),
             ModelType.SCORING: os.getenv("OLLAMA_MODEL_FOR_SCORING"),
-
         }
     
     def is_vllm_available(self, model_type: ModelType) -> bool:
         """Check if VLLM is configured and available for specific model type"""
-        return bool(self.vllm_url and self.vllm_models.get(model_type))
+        url_type = UrlType[model_type.value]  # Convert ModelType to corresponding UrlType
+        return bool(self.vllm_urls.get(url_type) and self.vllm_models.get(model_type))
     
     def is_ollama_available(self, model_type: ModelType) -> bool:
         """Check if Ollama is configured and available for specific model type"""
@@ -57,7 +70,8 @@ class EnvConfig:
         """Get the appropriate model and URL based on availability"""
         # First try VLLM
         if self.is_vllm_available(model_type):
-            return self.vllm_models[model_type], self.vllm_url
+            url_type = UrlType[model_type.value]  # Convert ModelType to corresponding UrlType
+            return self.vllm_models[model_type], self.vllm_urls[url_type]
         # Then try Ollama
         elif self.is_ollama_available(model_type):
             return self.ollama_models[model_type], self.ollama_url
@@ -81,8 +95,8 @@ async def invoke_llm(
     if not model or not url:
         return {"error": f"No LLM service available for model type {model_type.value}"}
     
-    if config.is_vllm_available(model_type) and url == config.vllm_url:
-        return await invoke_llm_vllm(system_prompt, user_prompt, model)
+    if config.is_vllm_available(model_type):
+        return await invoke_llm_vllm(system_prompt, user_prompt, model, url)
     else:
         return await invoke_llm_ollama(system_prompt, user_prompt, model)
 
@@ -105,76 +119,25 @@ async def stream_llm(
         yield f"Error: No LLM service available for model type {model_type.value}"
         return
     
-    if config.is_vllm_available(model_type) and url == config.vllm_url:
-        async for chunk in stream_llm_vllm(system_prompt, user_prompt, model):
+    if config.is_vllm_available(model_type):
+        async for chunk in stream_llm_vllm(system_prompt, user_prompt, model, url):
             yield chunk
     else:
         async for chunk in stream_llm_ollama(system_prompt, user_prompt, model):
             yield chunk
 
-            
-##############################################################################################################################
-##############################################################################################################################
-################################################VLLM GENERATION FUNCTIONS START###############################################
-##############################################################################################################################
 
-async def stream_llm_vllm(
-    system_prompt: str, 
-    user_prompt: str, 
-    ollama_model: str, 
-    temperature: float = 0.0,   # No randomness in token selection
-    top_p: float = 0.8,       # Only the single most probable token is considered
-    top_k: int = 5,          # Limits choice to only the top 1 token
-    seed: int = 42             # Fixed seed for reproducibility
-) -> AsyncGenerator[str, None]:
-    """Stream responses from the LLM for the dissertation analysis with sampling parameters."""
-    
-    # Define the payload for the request with sampling parameters
-    payload = {
-        "model": ollama_model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        "temperature": temperature,
-        "top_p": top_p,
-        "top_k": top_k,
-        "seed": seed,
-        "stream": True
-    }
-
-    async with httpx.AsyncClient() as client:
-        # Send the POST request to the API and open the stream
-        async with client.stream('POST', vllm_url, json=payload, timeout=None) as response:
-            # Check for a successful response
-            if response.status_code == 200:
-                async for line in response.aiter_lines():
-                    if line:
-                        # Remove the "data:" prefix if present
-                        raw_line = line.lstrip("data: ").strip()
-                        
-                        # Check for the 'DONE' signal to complete the stream
-                        if raw_line == "[DONE]":
-                            break  # Exit when the streaming completes
-                        
-                        try:
-                            # Parse the cleaned-up line as JSON
-                            data = json.loads(raw_line)
-                            
-                            # Extract and yield the content from 'choices' in the response
-                            content = data.get('choices', [{}])[0].get('delta', {}).get('content', '')
-                            if content:
-                                yield content  # Yield the content chunk
-                        except json.JSONDecodeError:
-                            continue  # Ignore invalid JSON lines
-            else:
-                print(f"Request failed with status code {response.status_code}")
+##############################################################################################################################
+##############################################################################################################################
+###############################################VLLM GENERATION FUNCTIONS START################################################
+##############################################################################################################################
 
 
 async def invoke_llm_vllm(
     system_prompt: str, 
     user_prompt: str, 
-    ollama_model: str, 
+    ollama_model: str,
+    vllm_url: str,
     temperature: float = 0.0, 
     top_p: float = 0.8, 
     top_k: int = 5, 
@@ -204,16 +167,14 @@ async def invoke_llm_vllm(
     
     try:
         async with httpx.AsyncClient() as client:
-            # Send the POST request to the API
+            # Use the provided VLLM URL
             response = await client.post(vllm_url, json=payload, timeout=None)
             
-            # Check for a successful response
             if response.status_code == 200:
                 response_data = json.loads(response.content)
                 ai_msg = response_data.get('choices', [{}])[0].get('message', {}).get('content', '')
-                return {"answer": ai_msg}  # Return the final answer
+                return {"answer": ai_msg}
             else:
-                # Handle unsuccessful responses
                 print(f"Error: {response.status_code} - {response.text}")
                 return {"error": response.text}
     
@@ -224,6 +185,52 @@ async def invoke_llm_vllm(
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         return {"error": str(e)}
+
+async def stream_llm_vllm(
+    system_prompt: str, 
+    user_prompt: str, 
+    ollama_model: str,
+    vllm_url: str,
+    temperature: float = 0.0,
+    top_p: float = 0.8,
+    top_k: int = 5,
+    seed: int = 42
+) -> AsyncGenerator[str, None]:
+    """Stream responses from the LLM for the dissertation analysis with sampling parameters."""
+    
+    payload = {
+        "model": ollama_model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        "temperature": temperature,
+        "top_p": top_p,
+        "top_k": top_k,
+        "seed": seed,
+        "stream": True
+    }
+
+    async with httpx.AsyncClient() as client:
+        # Use the provided VLLM URL
+        async with client.stream('POST', vllm_url, json=payload, timeout=None) as response:
+            if response.status_code == 200:
+                async for line in response.aiter_lines():
+                    if line:
+                        raw_line = line.lstrip("data: ").strip()
+                        
+                        if raw_line == "[DONE]":
+                            break
+                        
+                        try:
+                            data = json.loads(raw_line)
+                            content = data.get('choices', [{}])[0].get('delta', {}).get('content', '')
+                            if content:
+                                yield content
+                        except json.JSONDecodeError:
+                            continue
+            else:
+                print(f"Request failed with status code {response.status_code}")
     
 
 ##############################################################################################################################
