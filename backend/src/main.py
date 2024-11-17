@@ -248,7 +248,7 @@ async def process_pdf(pdf_file: UploadFile) -> Dict[str, str]:
                     img_byte_arr = img_byte_arr.getvalue()
                     
                     # Analyze image
-                    image_analysis = await analyze_image_vllm(img_byte_arr)
+                    image_analysis = await analyze_image(img_byte_arr)
                     
                     if isinstance(image_analysis, dict) and 'response' in image_analysis:
                         analysis_result = image_analysis['response'].strip()
