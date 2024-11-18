@@ -219,7 +219,7 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
 ###################################################HELPER FUNCTIONS###################################################
 
 
-async def process_images_in_batch(images_data: List[Tuple[int, bytes]], batch_size: int = 10) -> List[Tuple[int, str]]:
+async def process_images_in_batch(images_data: List[Tuple[int, bytes]], batch_size: int = 5) -> List[Tuple[int, str]]:
     """
     Process multiple images in batches asynchronously.
     
@@ -404,7 +404,7 @@ async def process_initial_agents(thesis_text: str) -> Dict[str, str]:
 
 
 def main():
-    uvicorn.run(app, host="0.0.0.0", port=8006)
+    uvicorn.run(app, host="0.0.0.0", port=5944)
 
 if __name__ == "__main__":
     main()

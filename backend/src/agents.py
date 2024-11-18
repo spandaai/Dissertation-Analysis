@@ -25,7 +25,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-async def process_chunks_in_batch(chunks: List[str], topic: str, system_prompt: str, batch_size: int = 10) -> List[str]:
+async def process_chunks_in_batch(chunks: List[str], topic: str, system_prompt: str, batch_size: int = 5) -> List[str]:
     """
     Process text chunks in batches for summarization.
     
