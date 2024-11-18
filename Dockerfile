@@ -7,6 +7,10 @@ COPY . /dissertation
 COPY setup.py ./
 COPY requirements.txt ./
 
+RUN apt-get update && apt-get install -y \
+    poppler-utils \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 # Install dependencies
 RUN pip install --upgrade pip \
     && pip install -r requirements.txt \

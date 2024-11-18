@@ -22,8 +22,8 @@ setup(
         "PyPDF2",
         "websockets",
         "python-multipart",
-        "python-docx"
-
+        "python-docx",
+        "pdf2image",
     ],
     entry_points={
         'console_scripts': [

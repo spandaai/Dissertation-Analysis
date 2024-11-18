@@ -103,10 +103,9 @@ async def analyze_image_vllm(
     """
 
     image_agent_user_prompt = """
-    Analyze the following image and provide a report detailing the features present. 
-    Include a clear description of what is depicted in the image without any interpretation.
-    Please keep the summarization below 200 words. Describe the intent of the image, not the details of what is present.
-    The summarization needs to be brief and short.
+Analyze the following image and provide a report detailing the features present. 
+Include a clear description of what is depicted in the image without any interpretation.
+Skip all signatures and names present in the images.
     """
     
     return await generate_from_image(

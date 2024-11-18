@@ -17,7 +17,7 @@ from pdf2image import convert_from_bytes
 from PIL import Image
 from typing import Dict, Tuple
 import asyncio
-
+from collections import OrderedDict
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -218,19 +218,18 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
 ###################################################HELPER FUNCTIONS###################################################
 ###################################################HELPER FUNCTIONS###################################################
 
-
-async def process_images_in_batch(images_data: List[Tuple[int, bytes]], batch_size: int = 5) -> List[Tuple[int, str]]:
+async def process_images_in_batch(images_data: List[Tuple[int, bytes]], batch_size: int = 5) -> Dict[int, str]:
     """
-    Process multiple images in batches asynchronously.
+    Process multiple images in batches while preserving order.
     
     Args:
-        images_data: List of tuples containing (page_number, image_bytes)
+        images_data: List of tuples containing (page_or_image_number, image_bytes)
         batch_size: Number of images to process in each batch
         
     Returns:
-        List of tuples containing (page_number, analysis_result)
+        Dictionary mapping page/image number to analysis result
     """
-    results = []
+    ordered_results = {}  # Preserve order using a dictionary keyed by page/image number
     
     for i in range(0, len(images_data), batch_size):
         batch = images_data[i:i + batch_size]
@@ -239,65 +238,79 @@ async def process_images_in_batch(images_data: List[Tuple[int, bytes]], batch_si
         # Process batch concurrently
         batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
         
-        # Pair results with their page numbers
+        # Pair results with their page/image numbers while preserving order
         for (page_num, _), result in zip(batch, batch_results):
             if isinstance(result, Exception):
-                logger.error(f"Failed to analyze image on page {page_num}: {result}")
+                logger.error(f"Failed to analyze image at {page_num}: {result}")
                 continue
                 
             if isinstance(result, dict) and 'response' in result:
                 analysis_result = result['response'].strip()
                 if analysis_result:
-                    results.append((page_num, analysis_result))
+                    ordered_results[page_num] = analysis_result
     
-    return results
+    return dict(sorted(ordered_results.items()))  # Return results in ascending order of page/image number
+
 
 async def process_pdf(pdf_file: UploadFile) -> Dict[str, str]:
     """
-    Process a PDF file to extract text and analyze images after page 6.
+    Process PDF file extracting text and images using PyMuPDF.
+    
+    Args:
+        pdf_file: Uploaded PDF file
+    
+    Returns:
+        Dictionary with extracted text and image analyses
     """
     pdf_bytes = await pdf_file.read()
-    final_text = ""
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     
-    # Process text using PyPDF2
-    pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
+    final_elements = OrderedDict()
+    images_data = []
+
+    # Start image analysis from page 7
+    image_analysis_start_page = 6  # Pages are zero-indexed, so page 7 is index 6
+
+    for page_num in range(doc.page_count):
+        page = doc[page_num]
+        
+        # Extract text using custom method for better block extraction
+        page_text = extract_and_clean_text_from_page(page)
+        if page_text:
+            final_elements[(page_num + 1, 'text')] = page_text
+        
+        # Extract images from page, only analyze images starting from page 7
+        if page_num >= image_analysis_start_page:
+            for img_index, img in enumerate(page.get_images(full=True)):
+                try:
+                    xref = img[0]
+                    base_image = doc.extract_image(xref)
+                    image_bytes = base_image["image"]
+                    images_data.append((page_num + 1, image_bytes))
+                except Exception as e:
+                    logger.error(f"Failed to extract image on page {page_num + 1}: {e}")
+
+    # Process images in batches
+    image_analyses = await process_images_in_batch(images_data) if images_data else OrderedDict()
     
-    # Extract text from all pages
-    for page_num in range(len(pdf_reader.pages)):
-        page = pdf_reader.pages[page_num]
-        text = page.extract_text()
-        if text:
-            final_text += f"\n\n{clean_text(text)}"
+    # Combine text with image analyses
+    for page_num, analysis in image_analyses.items():
+        if (page_num, 'text') in final_elements:
+            final_elements[(page_num, 'image')] = analysis
+        else:
+            final_elements[(page_num, 'image')] = analysis
+
+    doc.close()
     
-    # Process images only after page 6
-    if len(pdf_reader.pages) > 6:
-        try:
-            # Convert PDF pages to images
-            images = convert_from_bytes(
-                pdf_bytes,
-                first_page=7,
-                last_page=len(pdf_reader.pages)
-            )
-            
-            # Prepare batch data
-            images_data = []
-            for i, image in enumerate(images, start=7):
-                img_byte_arr = io.BytesIO()
-                image.save(img_byte_arr, format='PNG')
-                images_data.append((i, img_byte_arr.getvalue()))
-            
-            # Process images in batches
-            analysis_results = await process_images_in_batch(images_data)
-            
-            # Add results to final text
-            for page_num, analysis_result in analysis_results:
-                final_text += f"\n\nImage Analysis (Page {page_num}): {analysis_result}"
-                
-        except Exception as e:
-            logger.error(f"Failed to process PDF images: {e}")
-    
-    logger.info(f"Preview of cleaned text and images (first 500 chars): {final_text[:500]}")
-    return {"text_and_image_analysis": final_text.strip()}
+    combined_text = []
+    for key, value in final_elements.items():
+        if key[1] == 'text':
+            combined_text.append(value)
+        else:
+            combined_text.append(f"\n[Image Analysis on Page {key[0]}]: {value}")
+
+    return {"text_and_image_analysis": "\n".join(combined_text).strip()}
+
 
 async def process_docx(docx_file: UploadFile):
     """
@@ -327,14 +340,25 @@ async def process_docx(docx_file: UploadFile):
     # Process images in batches
     if images_data:
         analysis_results = await process_images_in_batch(images_data)
-        for idx, analysis_result in analysis_results:
-            final_text += f"\n\nImage Analysis (Image {idx + 1}): {analysis_result}"
 
+        # Add results to final text
+        for idx, analysis_result in sorted(analysis_results.items()):
+            final_text += f"\n\nImage Analysis (Image {idx + 1}): {analysis_result}"
+            
     cleaned_text = clean_text(final_text)
     return {"text_and_image_analysis": cleaned_text.strip()}
 
 
 def extract_and_clean_text_from_page(page) -> str:
+    """
+    Extract and clean text from a PDF page using PyMuPDF.
+    
+    Args:
+        page: PyMuPDF page object
+    
+    Returns:
+        Cleaned text string
+    """
     text_blocks = []
     blocks = page.get_text("blocks")
     for block in blocks:
@@ -344,16 +368,24 @@ def extract_and_clean_text_from_page(page) -> str:
                 text_blocks.append(cleaned_block)
 
     combined_text = ' '.join(text_blocks)
-    cleaned_text = clean_text(combined_text)
-    return cleaned_text
+    return clean_text(combined_text)
 
 def clean_text(text: str) -> str:
+    """
+    Clean and normalize text by removing unnecessary elements.
+    
+    Args:
+        text: Input text to clean
+    
+    Returns:
+        Cleaned text string
+    """
+    import re
     text = re.sub(r'Page \d+ of \d+', '', text, flags=re.IGNORECASE)
     text = re.sub(r'Chapter\s+\d+', '', text, flags=re.IGNORECASE)
     text = re.sub(r'\b\d+\b(?!\s*[a-zA-Z])', '', text)
     text = re.sub(r'[\r\n\t\f]+', ' ', text)
     return re.sub(r'\s+', ' ', text).strip()
-
 
 
 async def process_initial_agents(thesis_text: str) -> Dict[str, str]:
@@ -404,7 +436,7 @@ async def process_initial_agents(thesis_text: str) -> Dict[str, str]:
 
 
 def main():
-    uvicorn.run(app, host="0.0.0.0", port=5944)
+    uvicorn.run(app, host="0.0.0.0", port=8006)
 
 if __name__ == "__main__":
     main()

@@ -63,7 +63,6 @@ Topic: {topic}
 - Do not miss crucial details, but significantly reduced length and condensed information with no formatting.
 - Maintain academic tone
 - Do NOT guess. Just summarize whatever is mentioned in the dissertation chunk. Do not add anything to the dissertation chunk, just summarize.
-- Provide ONLY the summarized text, no filler words or formatting. Avoid summarizing references. Keep the summarization very concise and condensed.
 '''
             # Create coroutine for this chunk
             task = asyncio.create_task(invoke_llm(
