@@ -4,13 +4,9 @@ import aiohttp
 import base64
 import logging
 import aiohttp
-import json
 import base64
 from typing import List, Dict, Any
-import sys
 import logging
-from PIL import Image
-import io
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

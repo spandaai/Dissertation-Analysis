@@ -11,13 +11,12 @@ import logging
 from io import BytesIO
 from docx import Document
 from docx.parts.image import ImagePart
-import io
-import PyPDF2
-from pdf2image import convert_from_bytes
 from PIL import Image
 from typing import Dict, Tuple
 import asyncio
 from collections import OrderedDict
+from PIL import Image
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -225,50 +224,79 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
 ###################################################HELPER FUNCTIONS###################################################
 ###################################################HELPER FUNCTIONS###################################################
 ###################################################HELPER FUNCTIONS###################################################
+def resize_image(image_bytes: bytes, max_size: int = 800) -> bytes:
+    """
+    Resize an image to ensure both dimensions are smaller than max_size while maintaining the aspect ratio.
+    If the image dimensions are already smaller than max_size, it will not be resized.
+    
+    Args:
+        image_bytes: Original image bytes.
+        max_size: Maximum allowed size for any dimension.
+
+    Returns:
+        Resized image bytes (or original if no resizing is needed).
+    """
+    with Image.open(BytesIO(image_bytes)) as img:
+        # Check if resizing is needed
+        if img.width > max_size or img.height > max_size:
+            # Resize the image while maintaining the aspect ratio
+            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        
+        # Save the resized image into a BytesIO object
+        output = BytesIO()
+        img.save(output, format=img.format)  # Preserve original format
+        return output.getvalue()
+
 
 async def process_images_in_batch(
-    images_data: List[Tuple[int, bytes]], 
+    images_data: List[Tuple[int, bytes]],
     batch_size: int = 10
 ) -> Dict[int, str]:
     """
-    Process images in batches, sending them concurrently and preserving the order.
-    
+    Process images in batches, resizing each image and sending them concurrently while preserving the order.
+
     Args:
-        images_data: List of tuples containing (page_or_image_number, image_bytes)
-        batch_size: Number of images to process in each batch
-        
+        images_data: List of tuples containing (page_or_image_number, image_bytes).
+        batch_size: Number of images to process in each batch.
+
     Returns:
-        Dictionary mapping page/image number to analysis result
+        Dictionary mapping page/image number to analysis result.
     """
     ordered_results = {}  # Dictionary to preserve results by image number
-    
+
     for i in range(0, len(images_data), batch_size):
-        batch = images_data[i:i + batch_size]
-        batch_tasks = []
-        
-        # Create tasks for each image in the batch with a delay
-        for page_num, img_bytes in batch:
-            await asyncio.sleep(0)  # Introduce 0.5-second delay between task dispatches
-            batch_tasks.append(analyze_image(img_bytes))
-        
+        batch = images_data[i:i + batch_size]  # Get the current batch of images
+
+        # Resize images in the batch
+        resized_batch = [
+            (page_num, resize_image(img_bytes, max_size=800))
+            for page_num, img_bytes in batch
+        ]
+
+        # Create async tasks for image analysis
+        batch_tasks = [
+            asyncio.create_task(analyze_image(img_bytes))
+            for page_num, img_bytes in resized_batch
+        ]
+
         # Run all tasks in the current batch concurrently
         batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
-        
+
         # Pair results with their respective page/image numbers
         for (page_num, _), result in zip(batch, batch_results):
             if isinstance(result, Exception):
                 # Log or handle the exception as needed
-                logger.error(f"Failed to analyze image at {page_num}: {result}")
+                print(f"Failed to analyze image at {page_num}: {result}")
                 continue
-            
             # Process valid results
             if isinstance(result, dict) and 'response' in result:
                 analysis_result = result['response'].strip()
                 if analysis_result:  # Only include valid, non-empty responses
                     ordered_results[page_num] = analysis_result
-    
+
     # Return results sorted by page/image number
     return dict(sorted(ordered_results.items()))
+
 
 
 async def process_pdf(pdf_file: UploadFile) -> Dict[str, str]:
