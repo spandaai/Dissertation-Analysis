@@ -105,7 +105,8 @@ async def analyze_image_vllm(
     image_agent_user_prompt = """
 Analyze the following image and provide a report detailing the features present. 
 Include a clear description of what is depicted in the image without any interpretation.
-Skip all signatures and names present in the images.
+Skip all signatures and names present in the images. Do not make the analysis too long.
+Keep a very brief and concise summary. Do not exceed one paragraph.
     """
     
     return await generate_from_image(
@@ -260,8 +261,8 @@ async def send_multimodal_chat_message(
         "model": model,
         "messages": messages,
         "temperature": 0.0,
-        "top_p": 0.8,
-        "top_k": 5,
+        "top_p": 0.1,
+        "top_k": 1,
         "seed": 42,
         "stream": False
     }

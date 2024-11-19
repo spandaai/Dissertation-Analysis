@@ -135,6 +135,14 @@ Please make sure that you critique the work heavily, including all improvements 
 
 DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO SCORES ASSOCIATED WITH IT.
 """         
+            print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+            # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+            # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")            
+            # print(dissertation_system_prompt)
+            # print(dissertation_user_prompt)
+            # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+            # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+            # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
             if request.feedback:
                 dissertation_user_prompt = dissertation_user_prompt + '\n' + "IMPORTANT(The following feedback was provided by an expert. Consider the feedback properly, and ensure your evaluation follows this feedback): "+ request.feedback
             # Send criterion start marker
@@ -218,9 +226,12 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
 ###################################################HELPER FUNCTIONS###################################################
 ###################################################HELPER FUNCTIONS###################################################
 
-async def process_images_in_batch(images_data: List[Tuple[int, bytes]], batch_size: int = 5) -> Dict[int, str]:
+async def process_images_in_batch(
+    images_data: List[Tuple[int, bytes]], 
+    batch_size: int = 10
+) -> Dict[int, str]:
     """
-    Process multiple images in batches while preserving order.
+    Process images in batches, sending them concurrently and preserving the order.
     
     Args:
         images_data: List of tuples containing (page_or_image_number, image_bytes)
@@ -229,27 +240,35 @@ async def process_images_in_batch(images_data: List[Tuple[int, bytes]], batch_si
     Returns:
         Dictionary mapping page/image number to analysis result
     """
-    ordered_results = {}  # Preserve order using a dictionary keyed by page/image number
+    ordered_results = {}  # Dictionary to preserve results by image number
     
     for i in range(0, len(images_data), batch_size):
         batch = images_data[i:i + batch_size]
-        batch_tasks = [analyze_image(img_bytes) for _, img_bytes in batch]
+        batch_tasks = []
         
-        # Process batch concurrently
+        # Create tasks for each image in the batch with a delay
+        for page_num, img_bytes in batch:
+            await asyncio.sleep(0)  # Introduce 0.5-second delay between task dispatches
+            batch_tasks.append(analyze_image(img_bytes))
+        
+        # Run all tasks in the current batch concurrently
         batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
         
-        # Pair results with their page/image numbers while preserving order
+        # Pair results with their respective page/image numbers
         for (page_num, _), result in zip(batch, batch_results):
             if isinstance(result, Exception):
+                # Log or handle the exception as needed
                 logger.error(f"Failed to analyze image at {page_num}: {result}")
                 continue
-                
+            
+            # Process valid results
             if isinstance(result, dict) and 'response' in result:
                 analysis_result = result['response'].strip()
-                if analysis_result:
+                if analysis_result:  # Only include valid, non-empty responses
                     ordered_results[page_num] = analysis_result
     
-    return dict(sorted(ordered_results.items()))  # Return results in ascending order of page/image number
+    # Return results sorted by page/image number
+    return dict(sorted(ordered_results.items()))
 
 
 async def process_pdf(pdf_file: UploadFile) -> Dict[str, str]:

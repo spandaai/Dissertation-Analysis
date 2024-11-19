@@ -139,8 +139,8 @@ async def invoke_llm_vllm(
     ollama_model: str,
     vllm_url: str,
     temperature: float = 0.0, 
-    top_p: float = 0.8, 
-    top_k: int = 5, 
+    top_p: float = 0.1,
+    top_k: int = 1,   
     seed: int = 42
 ) -> dict:
     """Invoke the LLM with specified sampling parameters and return the final non-streaming response."""
@@ -192,8 +192,8 @@ async def stream_llm_vllm(
     ollama_model: str,
     vllm_url: str,
     temperature: float = 0.0,
-    top_p: float = 0.8,
-    top_k: int = 5,
+    top_p: float = 0.1,
+    top_k: int = 1,   
     seed: int = 42
 ) -> AsyncGenerator[str, None]:
     """Stream responses from the LLM for the dissertation analysis with sampling parameters."""
