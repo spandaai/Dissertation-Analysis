@@ -13,7 +13,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), index=True)
     degree = Column(String(255))
-    topic = Column(String(255))
+    topic = Column(Text)  
     total_score = Column(Integer)
 
     scores = relationship("UserScore", back_populates="user")
