@@ -24,6 +24,8 @@ setup(
         "python-multipart",
         "python-docx",
         "pdf2image",
+        "sqlalchemy",
+        "pymysql"
     ],
     entry_points={
         'console_scripts': [
