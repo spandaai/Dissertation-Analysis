@@ -1,10 +1,10 @@
 from backend.src.utils import *
 from backend.src.image_agents import *
-from backend.src.agents import *
-from backend.src.dissertation_types import QueryRequestThesisAndRubric, QueryRequestThesis
-from fastapi import FastAPI, WebSocket, UploadFile, File, HTTPException
-from fastapi.middleware.cors import CORSMiddleware 
 import uvicorn
+from backend.src.agents import *
+from backend.src.dissertation_types import QueryRequestThesisAndRubric, QueryRequestThesis,UserData,UserScoreData,PostData,FeedbackData ,User, UserScore, Feedback
+from fastapi import FastAPI, WebSocket, UploadFile, File, HTTPException ,Depends
+from fastapi.middleware.cors import CORSMiddleware 
 import re
 import fitz
 import logging
@@ -15,19 +15,49 @@ from PIL import Image
 from typing import Dict, Tuple
 import asyncio
 from collections import OrderedDict
-from PIL import Image
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, UniqueConstraint, Text
+from sqlalchemy.orm import sessionmaker, relationship, declarative_base
+from pydantic import BaseModel
+from typing import List
+from sqlalchemy.orm import Session
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
+
+# Get the database URL from environment variables
+SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL")
+
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)  
 
+
+def init_db():
+    Base.metadata.create_all(bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+init_db()
 # Create FastAPI app instance
 app = FastAPI(
     title="Dissertation Analysis API",
     description="API for analyzing dissertations",
     version="1.0.0"
 )
+origins = [
+    "http://localhost",
+    "http://localhost:4000",
 
+]
 # Add CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
@@ -40,6 +70,67 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     return {"message": "Hello! This is the Dissertation Analysis! Dissertation Analysis app is running!"}
+
+
+
+@app.post("/api/postUserData")
+def post_user_data(postData: PostData, db: Session = Depends(get_db)):
+    # Check if user exists based on unique combination of name, degree, and topic
+    db_user = db.query(User).filter_by(
+        name=postData.userData.name,
+        degree=postData.userData.degree,
+        topic=postData.userData.topic
+    ).first()
+
+    if db_user:
+        # Update user total score
+        db_user.total_score = postData.userData.total_score
+    else:
+        # Insert new user data if not exists
+        db_user = User(
+            name=postData.userData.name,
+            degree=postData.userData.degree,
+            topic=postData.userData.topic,
+            total_score=postData.userData.total_score
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+
+    # Update or insert user score data
+    existing_scores = {score.dimension_name: score for score in db_user.scores}
+    
+    for score_data in postData.userScores:
+        if score_data.dimension_name in existing_scores:
+            # Update existing score
+            existing_scores[score_data.dimension_name].score = score_data.score
+        else:
+            # Insert new score
+            db_score = UserScore(
+                user_id=db_user.id,
+                dimension_name=score_data.dimension_name,
+                score=score_data.score
+            )
+            db.add(db_score)
+    
+    db.commit()
+
+    return {"message": "Data successfully stored", "user_id": db_user.id}
+
+
+@app.post("/api/submitFeedback")
+def submit_feedback(feedback_data: FeedbackData, db: Session = Depends(get_db)):
+    # Insert the feedback into the database
+    feedback_entry = Feedback(
+        selected_text=feedback_data.selectedText,
+        feedback=feedback_data.feedback
+    )
+    db.add(feedback_entry)
+    db.commit()
+    db.refresh(feedback_entry)
+
+    return {"message": "Feedback stored successfully", "feedback_id": feedback_entry.id}
+
 
 @app.post("/extract_text_from_file_and_analyze_images")
 async def analyze_file(file: UploadFile = File(...)):

@@ -1,7 +1,42 @@
-from typing import Dict, Optional
+from typing import Dict, Optional ,List
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 from pydantic import BaseModel
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import relationship
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = 'Users'
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), index=True)
+    degree = Column(String(255))
+    topic = Column(String(255))
+    total_score = Column(Integer)
+
+    scores = relationship("UserScore", back_populates="user")
+
+    __table_args__ = (
+        UniqueConstraint('name', 'degree', 'topic', name='unique_user'),  
+    )
+
+class UserScore(Base):
+    __tablename__ = 'UserScores'
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('Users.id'))
+    dimension_name = Column(String(255))
+    score = Column(Integer)
+
+    user = relationship("User", back_populates="scores")
+
+class Feedback(Base):
+    __tablename__ = 'Feedbacks'
+    id = Column(Integer, primary_key=True, index=True)
+    selected_text = Column(Text, nullable=False)  
+    feedback = Column(Text, nullable=False)
+    
 
 class RubricCriteria(TypedDict):
     criteria_explanation: str
@@ -22,3 +57,22 @@ class QueryRequestThesisAndRubric(BaseModel):
 
 class QueryRequestThesis(BaseModel):
     thesis: str
+
+class UserData(BaseModel):
+    name: str
+    degree: str
+    topic: str
+    total_score: float
+
+class UserScoreData(BaseModel):
+    dimension_name: str
+    score: float
+
+class PostData(BaseModel):
+    userData: UserData
+    userScores: List[UserScoreData]
+
+class FeedbackData(BaseModel):
+    selectedText: str
+    feedback: str
+
