@@ -6,6 +6,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from typing import AsyncGenerator, List
 from typing import AsyncGenerator, Optional
 from enum import Enum
+from contextlib import asynccontextmanager
 
 # Load environment variables from .env file
 load_dotenv()
@@ -13,6 +14,14 @@ load_dotenv()
 # Access the environment variables
 ollama_url = os.getenv("OLLAMA_URL")
 vllm_url = os.getenv("VLLM_URL_FOR_ANALYSIS")
+
+
+class CancellationToken:
+    def __init__(self):
+        self.is_cancelled = False
+
+    def cancel(self):
+        self.is_cancelled = True
 
 class ModelType(Enum):
     ANALYSIS = "ANALYSIS"
@@ -99,17 +108,16 @@ async def invoke_llm(
         return await invoke_llm_vllm(system_prompt, user_prompt, model, url)
     else:
         return await invoke_llm_ollama(system_prompt, user_prompt, model)
-
+    
+    
 async def stream_llm(
     system_prompt: str,
     user_prompt: str,
     model_type: ModelType,
+    cancellation_token: CancellationToken,
     config: Optional[EnvConfig] = None
 ) -> AsyncGenerator[str, None]:
-    """
-    Unified interface for streaming LLM responses. Automatically chooses between VLLM and Ollama
-    based on availability, with priority given to VLLM.
-    """
+    """Unified streaming interface with cancellation support"""
     if config is None:
         config = EnvConfig()
     
@@ -120,12 +128,11 @@ async def stream_llm(
         return
     
     if config.is_vllm_available(model_type):
-        async for chunk in stream_llm_vllm(system_prompt, user_prompt, model, url):
+        async for chunk in stream_llm_vllm(system_prompt, user_prompt, model, url, cancellation_token):
             yield chunk
     else:
-        async for chunk in stream_llm_ollama(system_prompt, user_prompt, model):
+        async for chunk in stream_llm_ollama(system_prompt, user_prompt, model, cancellation_token):
             yield chunk
-
 
 ##############################################################################################################################
 ##############################################################################################################################
@@ -185,18 +192,20 @@ async def invoke_llm_vllm(
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         return {"error": str(e)}
+    
 
 async def stream_llm_vllm(
     system_prompt: str, 
     user_prompt: str, 
     ollama_model: str,
     vllm_url: str,
+    cancellation_token: CancellationToken,
     temperature: float = 0.0,
     top_p: float = 0.1,
     top_k: int = 1,   
     seed: int = 42
 ) -> AsyncGenerator[str, None]:
-    """Stream responses from the LLM for the dissertation analysis with sampling parameters."""
+    """Stream responses from the LLM with cancellation support"""
     
     payload = {
         "model": ollama_model,
@@ -212,26 +221,33 @@ async def stream_llm_vllm(
     }
 
     async with httpx.AsyncClient() as client:
-        # Use the provided VLLM URL
-        async with client.stream('POST', vllm_url, json=payload, timeout=None) as response:
-            if response.status_code == 200:
-                async for line in response.aiter_lines():
-                    if line:
-                        raw_line = line.lstrip("data: ").strip()
-                        
-                        if raw_line == "[DONE]":
+        try:
+            async with client.stream('POST', vllm_url, json=payload, timeout=None) as response:
+                if response.status_code == 200:
+                    async for line in response.aiter_lines():
+                        if cancellation_token.is_cancelled:
+                            # Close the connection explicitly
+                            await response.aclose()
                             break
-                        
-                        try:
-                            data = json.loads(raw_line)
-                            content = data.get('choices', [{}])[0].get('delta', {}).get('content', '')
-                            if content:
-                                yield content
-                        except json.JSONDecodeError:
-                            continue
-            else:
-                print(f"Request failed with status code {response.status_code}")
-    
+                            
+                        if line:
+                            raw_line = line.lstrip("data: ").strip()
+                            
+                            if raw_line == "[DONE]":
+                                break
+                            
+                            try:
+                                data = json.loads(raw_line)
+                                content = data.get('choices', [{}])[0].get('delta', {}).get('content', '')
+                                if content:
+                                    yield content
+                            except json.JSONDecodeError:
+                                continue
+                else:
+                    print(f"Request failed with status code {response.status_code}")
+        except Exception as e:
+            print(f"Error during streaming: {str(e)}")
+            raise
 
 ##############################################################################################################################
 ##############################################################################################################################
@@ -288,9 +304,13 @@ async def invoke_llm_ollama(system_prompt, user_prompt, ollama_model):
         return {"error": str(e)}
 
 
-
-async def stream_llm_ollama(system_prompt: str, user_prompt: str, ollama_model: str) -> AsyncGenerator[str, None]:
-    """Stream responses from the LLM"""
+async def stream_llm_ollama(
+    system_prompt: str, 
+    user_prompt: str, 
+    ollama_model: str,
+    cancellation_token: CancellationToken
+) -> AsyncGenerator[str, None]:
+    """Stream responses from Ollama with cancellation support"""
     prompt = f"""
     {system_prompt}
     {user_prompt}
@@ -308,15 +328,25 @@ async def stream_llm_ollama(system_prompt: str, user_prompt: str, ollama_model: 
     }
     
     async with httpx.AsyncClient() as client:
-        async with client.stream('POST', f"{ollama_url}/api/generate", json=payload, timeout=None) as response:
-            async for line in response.aiter_lines():
-                if line:
-                    try:
-                        data = json.loads(line)
-                        if 'response' in data:
-                            yield data['response']
-                    except json.JSONDecodeError:
-                        continue
+        try:
+            async with client.stream('POST', f"{ollama_url}/api/generate", json=payload, timeout=None) as response:
+                async for line in response.aiter_lines():
+                    if cancellation_token.is_cancelled:
+                        # Close the connection explicitly
+                        await response.aclose()
+                        break
+                        
+                    if line:
+                        try:
+                            data = json.loads(line)
+                            if 'response' in data:
+                                yield data['response']
+                        except json.JSONDecodeError:
+                            continue
+        except Exception as e:
+            print(f"Error during streaming: {str(e)}")
+            raise
+
 
 
 ##############################################################################################################################

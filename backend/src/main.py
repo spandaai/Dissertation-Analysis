@@ -3,7 +3,7 @@ from backend.src.image_agents import *
 import uvicorn
 from backend.src.agents import *
 from backend.src.dissertation_types import QueryRequestThesisAndRubric, QueryRequestThesis,UserData,UserScoreData,PostData,FeedbackData ,User, UserScore, Feedback
-from fastapi import FastAPI, WebSocket, UploadFile, File, HTTPException ,Depends
+from fastapi import FastAPI, WebSocket, UploadFile, File, HTTPException ,Depends,  WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware 
 import re
 import fitz
@@ -174,12 +174,45 @@ async def pre_analysis(request: QueryRequestThesis):
             detail="Failed to pre-analyze thesis"
         )
 
+class CancellationToken:
+    def __init__(self):
+        self.is_cancelled = False
+        self.ws_closed = False
+
+    def cancel(self):
+        self.is_cancelled = True
+
+    def mark_closed(self):
+        self.ws_closed = True
+
+async def safe_send(websocket: WebSocket, cancellation_token: CancellationToken, message: dict) -> bool:
+    """Safely send a message through the WebSocket if it's still open"""
+    if not cancellation_token.ws_closed:
+        try:
+            await websocket.send_json(message)
+            return True
+        except RuntimeError as e:
+            print(f"WebSocket send failed: {str(e)}")
+            cancellation_token.mark_closed()
+            return False
+    return False
 
 @app.websocket("/ws/dissertation_analysis")
 async def websocket_dissertation(websocket: WebSocket):
-    await websocket.accept()
+    cancellation_token = CancellationToken()
     
+    async def handle_disconnect():
+        """Handle WebSocket disconnection"""
+        cancellation_token.cancel()
+        cancellation_token.mark_closed()
+        print("WebSocket disconnected, cancelling LLM generation")
+
     try:
+        await websocket.accept()
+        
+        # Set up disconnect handler
+        websocket.on_disconnect = handle_disconnect
+        
         # Receive the initial data
         data = await websocket.receive_json()
         request = QueryRequestThesisAndRubric(**data)
@@ -187,15 +220,17 @@ async def websocket_dissertation(websocket: WebSocket):
         name_of_author = request.pre_analysis.name
         topic = request.pre_analysis.topic
         summary_of_thesis = request.pre_analysis.pre_analyzed_summary
+
         # Send initial metadata
-        await websocket.send_json({
+        if not await safe_send(websocket, cancellation_token, {
             "type": "metadata",
             "data": {
                 "name": name_of_author,
                 "degree": degree_of_student,
                 "topic": topic
             }
-        })
+        }):
+            return
 
         dissertation_system_prompt = """You are an impartial academic evaluator - an expert in analyzing the summarized dissertation provided to you. 
 Your task is to assess the quality of the provided summarized dissertation in relation to specific evaluation criteria. 
@@ -206,6 +241,10 @@ You will receive both the summarized dissertation and the criteria to analyze ho
 
         # Process each criterion
         for criterion, explanation in request.rubric.items():
+            if cancellation_token.is_cancelled:
+                print(f"Cancelling processing for criterion: {criterion}")
+                break
+
             dissertation_user_prompt = f"""
 # Input Materials
 ## Dissertation Text
@@ -224,168 +263,228 @@ You will receive both the summarized dissertation and the criteria to analyze ho
 Please make sure that you critique the work heavily, including all improvements that can be made.
 
 DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO SCORES ASSOCIATED WITH IT.
-"""         
-            print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-            # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-            # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")            
-            # print(dissertation_system_prompt)
-            # print(dissertation_user_prompt)
-            # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-            # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-            # print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+"""
             if request.feedback:
-                dissertation_user_prompt = dissertation_user_prompt + '\n' + "IMPORTANT(The following feedback was provided by an expert. Consider the feedback properly, and ensure your evaluation follows this feedback): "+ request.feedback
+                dissertation_user_prompt = dissertation_user_prompt + '\n' + "IMPORTANT(The following feedback was provided by an expert. Consider the feedback properly, and ensure your evaluation follows this feedback): " + request.feedback
+
             # Send criterion start marker
-            await websocket.send_json({
+            if not await safe_send(websocket, cancellation_token, {
                 "type": "criterion_start",
                 "data": {"criterion": criterion}
-            })
+            }):
+                break
 
-            # Stream the analysis
+            # Stream the analysis with cancellation support
             analysis_chunks = []
-            async for chunk in stream_llm(
-                system_prompt=dissertation_system_prompt,
-                user_prompt=dissertation_user_prompt,
-                model_type=ModelType.ANALYSIS
-            ):
-                analysis_chunks.append(chunk)
-                await websocket.send_json({
-                    "type": "analysis_chunk",
-                    "data": {
-                        "criterion": criterion,
-                        "chunk": chunk
+            try:
+                async for chunk in stream_llm(
+                    system_prompt=dissertation_system_prompt,
+                    user_prompt=dissertation_user_prompt,
+                    model_type=ModelType.ANALYSIS,
+                    cancellation_token=cancellation_token
+                ):
+                    if cancellation_token.is_cancelled:
+                        print(f"Cancelling streaming for criterion: {criterion}")
+                        break
+                        
+                    analysis_chunks.append(chunk)
+                    if not await safe_send(websocket, cancellation_token, {
+                        "type": "analysis_chunk",
+                        "data": {
+                            "criterion": criterion,
+                            "chunk": chunk
+                        }
+                    }):
+                        break
+
+                if not cancellation_token.is_cancelled and not cancellation_token.ws_closed:
+                    # Only process scoring if not cancelled and WebSocket is open
+                    analyzed_dissertation = "".join(analysis_chunks)
+                    
+                    # Get the score (non-streaming)
+                    graded_response = await scoring_agent(
+                        analyzed_dissertation, 
+                        criterion, 
+                        explanation['score_explanation'], 
+                        explanation['criteria_explanation'],
+                        request.feedback
+                    )
+
+                    # Extract score using regex
+                    pattern = r"spanda_score\s*:\s*(?:\*{1,2}\s*)?(\d+(?:\.\d+)?)\s*(?:\*{1,2})?"
+                    match = re.search(pattern, graded_response, re.IGNORECASE)
+                    score = float(match.group(1)) if match else 0
+                    total_score += score
+
+                    # Send criterion completion
+                    if not await safe_send(websocket, cancellation_token, {
+                        "type": "criterion_complete",
+                        "data": {
+                            "criterion": criterion,
+                            "score": score,
+                            "full_analysis": analyzed_dissertation
+                        }
+                    }):
+                        break
+
+                    evaluation_results[criterion] = {
+                        "feedback": analyzed_dissertation,
+                        "score": score
                     }
-                })
-
-            # Combine chunks for scoring
-            analyzed_dissertation = "".join(analysis_chunks)
             
-            # Get the score (non-streaming)
-            graded_response = await scoring_agent(
-                analyzed_dissertation, 
-                criterion, 
-                explanation['score_explanation'], 
-                explanation['criteria_explanation'],
-                request.feedback
-            )
+            except WebSocketDisconnect:
+                print(f"WebSocket disconnected during analysis of criterion: {criterion}")
+                cancellation_token.mark_closed()
+                break
+            except Exception as e:
+                print(f"Error processing criterion {criterion}: {str(e)}")
+                if not cancellation_token.ws_closed:
+                    if not await safe_send(websocket, cancellation_token, {
+                        "type": "error",
+                        "data": {
+                            "message": f"Error processing criterion {criterion}: {str(e)}",
+                            "criterion": criterion
+                        }
+                    }):
+                        break
+                break
 
-            # Extract score
-            pattern = r"spanda_score\s*:\s*(?:\*{1,2}\s*)?(\d+(?:\.\d+)?)\s*(?:\*{1,2})?"
-            match = re.search(pattern, graded_response, re.IGNORECASE)
-            
-            score = float(match.group(1)) if match else 0
-            total_score += score
-
-            # Send criterion completion
-            await websocket.send_json({
-                "type": "criterion_complete",
+        if not cancellation_token.is_cancelled and not cancellation_token.ws_closed:
+            # Only send final results if not cancelled and WebSocket is open
+            await safe_send(websocket, cancellation_token, {
+                "type": "complete",
                 "data": {
-                    "criterion": criterion,
-                    "score": score,
-                    "full_analysis": analyzed_dissertation
+                    "criteria_evaluations": evaluation_results,
+                    "total_score": total_score,
+                    "name": name_of_author,
+                    "degree": degree_of_student,
+                    "topic": topic
                 }
             })
-
-            evaluation_results[criterion] = {
-                "feedback": analyzed_dissertation,
-                "score": score
-            }
-        print(evaluation_results)
-        # Send final results
-        await websocket.send_json({
-            "type": "complete",
-            "data": {
-                "criteria_evaluations": evaluation_results,
-                "total_score": total_score,
-                "name": name_of_author,
-                "degree": degree_of_student,
-                "topic": topic
-            }
-        })
-
+            
+    except WebSocketDisconnect:
+        print("WebSocket disconnected during main processing")
+        cancellation_token.mark_closed()
     except Exception as e:
-        await websocket.send_json({
-            "type": "error",
-            "data": {"message": str(e)}
-        })
+        print(f"Error in main processing: {str(e)}")
+        if not cancellation_token.ws_closed:
+            await safe_send(websocket, cancellation_token, {
+                "type": "error",
+                "data": {"message": str(e)}
+            })
     finally:
-        await websocket.close()
+        if not cancellation_token.ws_closed:
+            await websocket.close()
 
-
 ###################################################HELPER FUNCTIONS###################################################
 ###################################################HELPER FUNCTIONS###################################################
 ###################################################HELPER FUNCTIONS###################################################
-def resize_image(image_bytes: bytes, max_size: int = 800) -> bytes:
+def resize_image(image_bytes: bytes, max_size: int = 800, min_size: int = 70) -> bytes:
     """
-    Resize an image to ensure both dimensions are smaller than max_size while maintaining the aspect ratio.
-    If the image dimensions are already smaller than max_size, it will not be resized.
+    Resize an image to ensure dimensions are between min_size and max_size while maintaining aspect ratio.
     
     Args:
-        image_bytes: Original image bytes.
-        max_size: Maximum allowed size for any dimension.
+        image_bytes: Original image bytes
+        max_size: Maximum allowed size for any dimension
+        min_size: Minimum allowed size for any dimension
 
     Returns:
-        Resized image bytes (or original if no resizing is needed).
+        Resized image bytes
     """
     with Image.open(BytesIO(image_bytes)) as img:
-        # Check if resizing is needed
-        if img.width > max_size or img.height > max_size:
-            # Resize the image while maintaining the aspect ratio
-            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        # Get original dimensions
+        orig_width, orig_height = img.size
         
-        # Save the resized image into a BytesIO object
-        output = BytesIO()
-        img.save(output, format=img.format)  # Preserve original format
-        return output.getvalue()
+        # Calculate aspect ratio
+        aspect_ratio = orig_width / orig_height
 
+        # Check if image needs to be resized up or down
+        needs_upscaling = orig_width < min_size or orig_height < min_size
+        needs_downscaling = orig_width > max_size or orig_height > max_size
+
+        if needs_upscaling:
+            # If width is smaller than minimum, scale up maintaining aspect ratio
+            if orig_width < min_size:
+                new_width = min_size
+                new_height = int(new_width / aspect_ratio)
+                # If height is still too small, scale based on height instead
+                if new_height < min_size:
+                    new_height = min_size
+                    new_width = int(new_height * aspect_ratio)
+            else:
+                new_height = min_size
+                new_width = int(new_height * aspect_ratio)
+            
+            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+        elif needs_downscaling:
+            # Use thumbnail for downscaling as it preserves aspect ratio
+            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+
+        # Save the resized image
+        output = BytesIO()
+        img.save(output, format=img.format or 'PNG')  # Use PNG as fallback format
+        return output.getvalue()
 
 async def process_images_in_batch(
     images_data: List[Tuple[int, bytes]],
     batch_size: int = 10
 ) -> Dict[int, str]:
     """
-    Process images in batches, resizing each image and sending them concurrently while preserving the order.
+    Process images in batches, resizing each image and sending them concurrently.
+    Includes additional error handling and validation.
 
     Args:
-        images_data: List of tuples containing (page_or_image_number, image_bytes).
-        batch_size: Number of images to process in each batch.
+        images_data: List of tuples containing (page_or_image_number, image_bytes)
+        batch_size: Number of images to process in each batch
 
     Returns:
-        Dictionary mapping page/image number to analysis result.
+        Dictionary mapping page/image number to analysis result
     """
-    ordered_results = {}  # Dictionary to preserve results by image number
+    ordered_results = {}
 
     for i in range(0, len(images_data), batch_size):
-        batch = images_data[i:i + batch_size]  # Get the current batch of images
+        batch = images_data[i:i + batch_size]
 
-        # Resize images in the batch
-        resized_batch = [
-            (page_num, resize_image(img_bytes, max_size=800))
-            for page_num, img_bytes in batch
-        ]
+        try:
+            # Resize images in the batch with minimum size requirement
+            resized_batch = []
+            for page_num, img_bytes in batch:
+                try:
+                    resized_img = resize_image(img_bytes, max_size=800, min_size=70)
+                    resized_batch.append((page_num, resized_img))
+                except Exception as e:
+                    logger.error(f"Failed to resize image at page {page_num}: {e}")
+                    continue
 
-        # Create async tasks for image analysis
-        batch_tasks = [
-            asyncio.create_task(analyze_image(img_bytes))
-            for page_num, img_bytes in resized_batch
-        ]
-
-        # Run all tasks in the current batch concurrently
-        batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
-
-        # Pair results with their respective page/image numbers
-        for (page_num, _), result in zip(batch, batch_results):
-            if isinstance(result, Exception):
-                # Log or handle the exception as needed
-                print(f"Failed to analyze image at {page_num}: {result}")
+            # Skip batch if no images were successfully resized
+            if not resized_batch:
                 continue
-            # Process valid results
-            if isinstance(result, dict) and 'response' in result:
-                analysis_result = result['response'].strip()
-                if analysis_result:  # Only include valid, non-empty responses
-                    ordered_results[page_num] = analysis_result
 
-    # Return results sorted by page/image number
+            # Create async tasks for image analysis
+            batch_tasks = [
+                asyncio.create_task(analyze_image(img_bytes))
+                for _, img_bytes in resized_batch
+            ]
+
+            # Run all tasks in the current batch concurrently
+            batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+
+            # Process results
+            for (page_num, _), result in zip(resized_batch, batch_results):
+                if isinstance(result, Exception):
+                    logger.error(f"Failed to analyze image at page {page_num}: {result}")
+                    continue
+                
+                if isinstance(result, dict) and 'response' in result:
+                    analysis_result = result['response'].strip()
+                    if analysis_result:
+                        ordered_results[page_num] = analysis_result
+
+        except Exception as e:
+            logger.error(f"Failed to process batch starting at index {i}: {e}")
+            continue
+
     return dict(sorted(ordered_results.items()))
 
 
