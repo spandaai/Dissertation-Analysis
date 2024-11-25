@@ -11,8 +11,6 @@ The **Dissertation Analysis System** is designed to evaluate and analyze dissert
 ## Features
 
 - **Comprehensive Dissertation Evaluation**: Analyzes various aspects of dissertations, including structure, content quality, originality, and adherence to academic standards.
-- **Plagiarism Detection**: Utilizes advanced algorithms to detect potential plagiarism, ensuring the integrity of research work.
-- TO DO - **Apache Superset Analytics Integration**: Provides detailed visual analytics and dashboards through Apache Superset, enabling academic committees to track trends, identify common strengths and weaknesses, and make informed decisions.
 - **Customizable Evaluation Criteria**: Allows for the definition of specific evaluation parameters based on departmental or institutional standards, ensuring a tailored assessment approach.
 - **Automated Reporting**: Generates detailed reports summarizing the evaluation results, highlighting areas of excellence and suggesting improvements where necessary.
 - **Data-Driven Insights**: Uses collected data to inform curriculum development and enhance the overall quality of research training programs.
@@ -27,6 +25,15 @@ Before running the project, make sure you have the following installed:
 - [Verba](https://github.com/spandaai/Verba-2.0)
 - Python 3.10 (for backend services)
 - Ollama and the required generation model chosen
+
+---
+
+## Frontend not included
+
+This repo has all the necessary endpoints, exposes all endpoints for our application. In order to fully utilize the frontend, follow the repo:
+
+- [Dissertation Application Frontend](https://github.com/spandaai/dissertation-frontend)
+- **Apache Superset Analytics Integration**: Provides detailed visual analytics and dashboards through Apache Superset, enabling academic committees to track trends, identify common strengths and weaknesses, and make informed decisions.
 
 ---
 
