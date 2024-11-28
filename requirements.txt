@@ -18,3 +18,7 @@ python-multipart
 python-docx
 sqlalchemy
 pymysql
+aiokafka
+contextlib2
+kafka-python
+aioredis>=2.0.0
