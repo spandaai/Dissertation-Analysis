@@ -1,8 +1,15 @@
 # Dissertation Analysis
 
-INSERT FLOWCHART
+![Flow Chart](./flow-chart.png)
 
 ## Overview
+
+
+<video controls width="400" height="200">
+  <source src="./media/dissertation-analysis-demo.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
 
 The **Dissertation Analysis System** is designed to evaluate and analyze dissertations submitted by graduate students. This system leverages advanced analytics to assess the quality, originality, and impact of dissertations, helping academic committees ensure high standards in research outputs. With integration into Apache Superset, the system provides insightful visualizations and metrics for comprehensive dissertation assessment.
 
