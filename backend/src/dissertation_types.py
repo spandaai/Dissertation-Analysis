@@ -36,6 +36,7 @@ class Feedback(Base):
     id = Column(Integer, primary_key=True, index=True)
     selected_text = Column(Text, nullable=False)  
     feedback = Column(Text, nullable=False)
+    pre_analysis=Column(Text, nullable=False)
     
 
 class RubricCriteria(TypedDict):
@@ -75,4 +76,5 @@ class PostData(BaseModel):
 class FeedbackData(BaseModel):
     selectedText: str
     feedback: str
+    preAnalysisData: str
 

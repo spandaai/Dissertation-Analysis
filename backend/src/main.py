@@ -445,18 +445,23 @@ def post_user_data(postData: PostData, db: Session = Depends(get_db)):
 
 @app.post("/api/submitFeedback")
 def submit_feedback(feedback_data: FeedbackData, db: Session = Depends(get_db)):
-    # Insert the feedback into the database
-    feedback_entry = Feedback(
-        selected_text=feedback_data.selectedText,
-        feedback=feedback_data.feedback
-    )
-    db.add(feedback_entry)
-    db.commit()
-    db.refresh(feedback_entry)
+    try:
+        # Insert the feedback into the database
+        feedback_entry = Feedback(
+            selected_text=feedback_data.selectedText,
+            feedback=feedback_data.feedback,
+            pre_analysis=feedback_data.preAnalysisData
+        )
+        db.add(feedback_entry)
+        db.commit()
+        db.refresh(feedback_entry)
 
-    return {"message": "Feedback stored successfully", "feedback_id": feedback_entry.id}
-
-
+        return {"message": "Feedback stored successfully", "feedback_id": feedback_entry.id}
+    
+    except Exception as e:
+        db.rollback()  # Ensure rollback on error
+        print(f"Error inserting feedback: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.post("/api/extract_text_from_file_and_analyze_images")
