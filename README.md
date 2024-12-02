@@ -1,5 +1,16 @@
 # Dissertation Analysis
 
+## Please check the following for detailed solution
+
+### Objective
+
+For a detailed overview, refer to the [Document](./objective.md).
+
+### Solution
+
+For a detailed analysis, refer to the [Solution Document](./solution.md).
+
+
 ## Video Demo
 
 [Watch Dissertation Analysis Demo on YouTube](https://www.youtube.com/watch?v=CWttOFzm7fY)
@@ -7,7 +18,7 @@
 ## Flow Chart
 ![Flow Chart](./media/flow-chart.png)
 
-## Overview
+## Brief Overview
 
 The **Dissertation Analysis System** is designed to evaluate and analyze dissertations submitted by graduate students. This system leverages advanced analytics to assess the quality, originality, and impact of dissertations, helping academic committees ensure high standards in research outputs. With integration into Apache Superset, the system provides insightful visualizations and metrics for comprehensive dissertation assessment.
 
@@ -27,7 +38,6 @@ The **Dissertation Analysis System** is designed to evaluate and analyze dissert
 
 Before running the project, make sure you have the following installed:
 
-- [Verba](https://github.com/spandaai/Verba-2.0)
 - Python 3.10 (for backend services)
 - Ollama and the required generation model chosen
 
