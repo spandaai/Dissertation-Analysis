@@ -172,7 +172,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-@app.get("/")
+@app.get("/api/")
 def read_root():
     return {"message": "Hello! This is the Dissertation Analysis! Dissertation Analysis app is running!"}
 
@@ -326,7 +326,7 @@ async def consume_messages():
 
 notification_clients = {}  # Map of session IDs to WebSocket connections
 
-@app.websocket("/ws/notifications")
+@app.websocket("/api/ws/notifications")
 async def notification_endpoint(websocket: WebSocket):
     """
     WebSocket endpoint for notifications.
@@ -365,7 +365,7 @@ async def notify_frontend_to_reconnect(session_id: str):
 
 connected_websockets = {}
 
-@app.websocket("/ws/dissertation_analysis_reconnect")
+@app.websocket("/api/ws/dissertation_analysis_reconnect")
 async def websocket_reconnect(websocket: WebSocket, session_id: str):
     """
     Handle WebSocket reconnections for dequeued Kafka requests.
@@ -459,7 +459,7 @@ def submit_feedback(feedback_data: FeedbackData, db: Session = Depends(get_db)):
 
 
 
-@app.post("/extract_text_from_file_and_analyze_images")
+@app.post("/api/extract_text_from_file_and_analyze_images")
 async def analyze_file(file: UploadFile = File(...)):
     try:
         if file.filename.endswith(".pdf"):
@@ -676,7 +676,7 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
             await websocket.send_json({"type": "error", "data": {"message": str(e)}})
 
 
-@app.websocket("/ws/dissertation_analysis")
+@app.websocket("/api/ws/dissertation_analysis")
 async def websocket_dissertation(websocket: WebSocket):
     """
     WebSocket endpoint for dissertation analysis.
@@ -827,7 +827,7 @@ def resize_image(image_bytes: bytes, max_size: int = 800, min_size: int = 70) ->
 
 async def process_images_in_batch(
     images_data: List[Tuple[int, bytes]],
-    batch_size: int = 10
+    batch_size: int = 5
 ) -> Dict[int, str]:
     """
     Process images in batches, resizing each image and sending them concurrently.

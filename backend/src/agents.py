@@ -57,12 +57,11 @@ Topic: {topic}
    - Captures essential arguments
    - Retains key facts and details
    - Maintains logical flow
-   - Connects to overall topic: {topic}
-   - Acknowledges this is part of a larger work
 # Output Requirements
 - Do not miss crucial details, but significantly reduced length and condensed information with no formatting.
 - Maintain academic tone
 - Do NOT guess. Just summarize whatever is mentioned in the dissertation chunk. Do not add anything to the dissertation chunk, just summarize.
+- Make the summary extremely short. Have it be as short as possible while summarzing important points that will be needed for the analysis of the final dissertation.
 '''
             # Create coroutine for this chunk
             task = asyncio.create_task(invoke_llm(
@@ -117,7 +116,7 @@ async def summarize_and_analyze_agent(thesis: str, topic: str) -> str:
         chunks=chunks,
         topic=topic,
         system_prompt=summarize_system_prompt,
-        batch_size=10
+        batch_size=5
     )
     
     # Combine all summarized chunks into a final summary
