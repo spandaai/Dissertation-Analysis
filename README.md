@@ -1,11 +1,8 @@
 # Dissertation Analysis
 
-## Video demo
+## Video Demo
 
-<video controls width="400" height="200">
-  <source src="./media/dissertation-analysis-demo.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+[Watch Dissertation Analysis Demo on YouTube](https://www.youtube.com/watch?v=CWttOFzm7fY)
 
 ## Flow Chart
 ![Flow Chart](./media/flow-chart.png)
