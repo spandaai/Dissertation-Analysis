@@ -2,14 +2,14 @@ version: '3.8'
 services:
   spanda_wilp_dissertation_analysis:
     build:
-      context: C:\Users\hanis\spandaai\Dissertation-Analysis  # Path to your repo
-      dockerfile: Dockerfile  # Ensure this points to the correct Dockerfile
+      context: ./  # Relative path for portability
+      dockerfile: Dockerfile
     ports:
       - "8007:8006"
     volumes:
       - ./backend/src:/app/backend/src
     env_file:
-      - .env  # Reference your .env file here
+      - .env  # Reference to your environment file
     command: ["da-start"]
     networks:
       - app_network
@@ -36,8 +36,8 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_MESSAGE_MAX_BYTES: 200000000  # 200 MB
-      KAFKA_REPLICA_FETCH_MAX_BYTES: 200000000  # 200 MB
+      KAFKA_MESSAGE_MAX_BYTES: 200000000
+      KAFKA_REPLICA_FETCH_MAX_BYTES: 200000000
     depends_on:
       - zookeeper
     networks:
