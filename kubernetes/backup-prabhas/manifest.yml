@@ -1,0 +1,319 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dissertation-backend
+  labels:
+    app: dissertation-backend
+spec:
+  replicas: 20
+  selector:
+    matchLabels:
+      app: dissertation-backend
+  template:
+    metadata:
+      labels:
+        app: dissertation-backend
+    spec:
+      containers:
+      - name: dissertation-backend
+        image: prabhas264/dissertation-backend:latest
+        command: ["da-start"]
+        ports:
+        - containerPort: 8006
+        envFrom:
+        - configMapRef:
+            name: dissertation-env-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dissertation-backend-service
+spec:
+  selector:
+    app: dissertation-backend
+  ports:
+  - protocol: TCP
+    port: 8006
+    targetPort: 8006
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dissertation-env-config
+data:
+  VLLM_URL_FOR_ANALYSIS: "http://vllm-service:8000/v1/chat/completions"
+  VLLM_URL_FOR_SUMMARY: "http://vllm-service:8000/v1/chat/completions"
+  VLLM_URL_FOR_IMAGE: "http://vllm-vision-service:8001/v1/chat/completions"
+  VLLM_URL_FOR_SCORING: "http://vllm-service:8000/v1/chat/completions"
+  VLLM_URL_FOR_EXTRACTION: "http://vllm-service:8000/v1/chat/completions"
+  VLLM_MODEL_FOR_ANALYSIS: "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"
+  VLLM_MODEL_FOR_EXTRACTION: "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"
+  VLLM_MODEL_FOR_SUMMARY: "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"
+  VLLM_MODEL_FOR_IMAGE: "Qwen/Qwen2-VL-7B-Instruct-AWQ"
+  VLLM_MODEL_FOR_SCORING: "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"
+  OLLAMA_URL: "http://localhost:11434"
+  OLLAMA_MODEL_FOR_ANALYSIS: "llama3.2"
+  OLLAMA_MODEL_FOR_EXTRACTION: "nemotron:70b"
+  OLLAMA_MODEL_FOR_SUMMARY: "qwen2.5:14b"
+  OLLAMA_MODEL_FOR_IMAGE: "llama3.2-vision:11b-instruct-q4_K_M"
+  OLLAMA_MODEL_FOR_SCORING: "nemotron:70b"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-release.default.svc.cluster.local:9092"
+  KAFKA_TOPIC: "dissertation_analysis_queue"
+  MAX_CONCURRENT_USERS: "25"
+  SQLALCHEMY_DATABASE_URL: "mysql+pymysql://root:Spanda%40123@mysql:3306/feedbackDb"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dissertation-frontend
+  labels:
+    app: dissertation-frontend
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: dissertation-frontend
+  template:
+    metadata:
+      labels:
+        app: dissertation-frontend
+    spec:
+      containers:
+      - name: dissertation-frontend
+        image: prabhas264/dissertation-frontend
+        ports:
+        - containerPort: 4000
+        env:
+        - name: API_URL
+          value: http://192.168.49.2:30006/
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dissertation-frontend-service
+spec:
+  selector:
+    app: dissertation-frontend
+  ports:
+  - protocol: TCP
+    port: 4000       
+    targetPort: 4000 
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - image: mysql:latest
+        name: mysql
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: password
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysql-persistent-storage
+        hostPath:
+          path: /mnt/data/mysql
+          type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: mysql
+--- 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm
+  template:
+    metadata:
+      labels:
+        app: vllm
+    spec:
+      hostIPC: true
+      volumes:
+      - name: hf-cache
+        hostPath:
+          path: /mnt/data/huggingface
+          type: DirectoryOrCreate
+      - name: shm
+        emptyDir:
+          medium: Memory
+      containers:
+      - name: vllm
+        image: vllm/vllm-openai:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: HUGGING_FACE_HUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-secret
+              key: HF_TOKEN
+        volumeMounts:
+        - name: hf-cache
+          mountPath: /root/.cache/huggingface
+        - name: shm
+          mountPath: /dev/shm
+        command:
+        - "/bin/sh"
+        - "-c"
+        args:
+        - vllm serve hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4
+          --max-num-seqs 64
+          --max-num-batched-tokens 16384
+          --gpu-memory-utilization 0.7
+          --swap-space 8
+          --max-model-len 8128
+          --disable-custom-all-reduce
+          --use-v2-block-manager
+          --enable-chunked-prefill
+          --enable-prefix-caching
+          --enforce-eager
+          --quantization awq_marlin
+        securityContext:
+          privileged: true
+        imagePullPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-service
+spec:
+  selector:
+    app: vllm
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-vision
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-vision
+  template:
+    metadata:
+      labels:
+        app: vllm-vision
+    spec:
+      hostIPC: true
+      volumes:
+      - name: hf-cache
+        hostPath:
+          path: /mnt/data/huggingface
+          type: DirectoryOrCreate
+      - name: shm
+        emptyDir:
+          medium: Memory
+      containers:
+      - name: vllm-vision
+        image: vllm/vllm-openai:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: HUGGING_FACE_HUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-secret
+              key: HF_TOKEN
+        volumeMounts:
+        - name: hf-cache
+          mountPath: /root/.cache/huggingface
+        - name: shm
+          mountPath: /dev/shm
+        command:
+        - "/bin/sh"
+        - "-c"
+        args:
+        - vllm serve Qwen/Qwen2-VL-7B-Instruct-AWQ
+          --gpu-memory-utilization 0.9
+          --max-num-batched-tokens 32768
+          --max-num-seqs 64
+          --max-model-len 10000
+          --block-size 16  
+          --swap-space 4 
+          --enforce-eager
+          --tensor-parallel-size 1
+          --quantization awq_marlin
+        securityContext:
+          privileged: true
+        imagePullPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-vision-service
+spec:
+  selector:
+    app: vllm-vision
+  ports:
+    - protocol: TCP
+      port: 8001
+      targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dissertation-frontend-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: dissertation-backend-service
+                port:
+                  number: 8006
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dissertation-frontend-service
+                port:
+                  number: 4000
+

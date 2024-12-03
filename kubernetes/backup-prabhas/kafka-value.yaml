@@ -1,0 +1,44 @@
+kafka:
+  replicaCount: 1 
+  heapOpts: "-Xmx1024m -Xms1024m"
+  persistence:
+    enabled: true
+    size: 24Gi
+  service:
+    type: ClusterIP  
+    port: 9092       
+  listeners:
+    client:
+      name: CLIENT
+      containerPort: 9092
+      protocol: PLAINTEXT
+      sslClientAuth: ""
+    interbroker:
+      name: INTERNAL
+      containerPort: 9094
+      protocol: PLAINTEXT
+      sslClientAuth: "" 
+    external:
+      name: EXTERNAL
+      containerPort: 9095
+      protocol: PLAINTEXT
+      sslClientAuth: ""  
+    controller:
+      name: CONTROLLER
+      containerPort: 9093
+      protocol: PLAINTEXT
+      sslClientAuth: ""
+  listenerSecurityProtocolMap:
+    PLAINTEXT: PLAINTEXT
+  interBrokerListenerName: PLAINTEXT
+  extraConfig:
+    maxMessageBytes: "200000000"
+    offsetsTopicReplicationFactor: "1"  
+    replicaFetchMaxBytes: "200000000"
+  extraEnvVars:
+  - name: KAFKA_ENABLE_KRAFT
+    value: "true"
+  - name: KAFKA_CFG_DELETE_TOPIC_ENABLE
+    value: "true" 
+  - name: KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE
+    value: "true" 

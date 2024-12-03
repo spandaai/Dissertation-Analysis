@@ -1,0 +1,16 @@
+# Define the namespace where Superset will be installed
+namespace: superset
+
+# Database configuration
+postgresql:
+  postgresqlUsername: supersetpostgres
+  postgresqlPassword: SuperPGadmin@2024
+  postgresqlDatabase: superset
+
+configOverrides:
+  secrets: |
+    SECRET_KEY = '+NJd+/6oi9E2tcwgpfSQQJqpnQPbaq0eCQvxjqadsimkX1FH+os+C4zz'
+
+bootstrapScript: |
+  #!/bin/bash
+  pip install  psycopg2-binary
