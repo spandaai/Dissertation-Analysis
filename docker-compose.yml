@@ -1,22 +1,28 @@
 version: '3.8'
 services:
-  spanda_wilp_dissertation_analysis:
+  dissertation-backend:
     build:
       context: ./  # Relative path for portability
       dockerfile: Dockerfile
     ports:
       - "8007:8006"
-    volumes:
-      - ./backend/src:/app/backend/src
     env_file:
-      - .env  # Reference to your environment file
+      - .env
     command: ["da-start"]
     networks:
       - app_network
     depends_on:
       - kafka
-      - redis  
-
+      - redis
+  dissertation-frontend:
+    image: prabhas264/dissertation-frontend:newUrl
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL}
+    networks:
+      - app_network
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     environment:
@@ -26,7 +32,6 @@ services:
       - "2181:2181"
     networks:
       - app_network
-
   kafka:
     image: confluentinc/cp-kafka:latest
     ports:
@@ -36,13 +41,12 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_MESSAGE_MAX_BYTES: 200000000
-      KAFKA_REPLICA_FETCH_MAX_BYTES: 200000000
+      KAFKA_MESSAGE_MAX_BYTES: 200000000  # 200 MB
+      KAFKA_REPLICA_FETCH_MAX_BYTES: 200000000  # 200 MB
     depends_on:
       - zookeeper
     networks:
       - app_network
-
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
@@ -55,7 +59,6 @@ services:
       - kafka
     networks:
       - app_network
-
   redis:
     image: redis:alpine
     container_name: redis
@@ -63,7 +66,87 @@ services:
       - "6379:6379"
     networks:
       - app_network
-
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: "nvidia"
+              count: all
+              capabilities: [gpu]
+    networks:
+      - app_network
+  # vllmnemotrontext:
+  #   image: vllm/vllm-openai:latest
+  #   runtime: nvidia
+  #   restart: always
+  #   env_file: 
+  #     - .env
+  #   environment:
+  #     - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+  #   ports:
+  #     - "8001:8000"
+  #   volumes:
+  #     - ~/.cache/huggingface:/root/.cache/huggingface
+  #   command: >  #change the model parameters accordingly
+  #     --model AMead10/Llama-3.2-3B-Instruct-AWQ 
+  #   ipc: host
+  #   networks:
+  #     - app_network
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+  # vllmqwenvision:
+  #   image: vllm/vllm-openai:latest
+  #   runtime: nvidia
+  #   restart: always
+  #   env_file: 
+  #     - .env
+  #   environment:
+  #     - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+  #   ports:
+  #     - "8002:8000"
+  #   volumes:
+  #     - ~/.cache/huggingface:/root/.cache/huggingface
+  #   command: > #change the model parameters accordingly
+  #     --model Qwen/Qwen2-VL-2B-Instruct-AWQ
+  #   ipc: host
+  #   networks:
+  #     - app_network
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: Spanda@123
+      MYSQL_DATABASE: feedbackDb
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app_network
+volumes:
+  mysql_data:
+    driver: local
+  ollama:
+    driver: local
 networks:
   app_network:
     external: true

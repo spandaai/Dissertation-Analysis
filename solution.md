@@ -27,6 +27,8 @@ The platform is conceptualized as a multi-layered, event-driven microservices ar
 
 ### 2.2 Agent-Based Analysis Architecture
 
+![Flow Chart](./media//flow-chart.png)
+
 #### 2.2.1 Multi-Agent LLM Cluster Design
 
 The core of the platform is a sophisticated multi-agent architecture powered by specialized Large Language Models (LLMs), strategically deployed on the Spanda.AI Platform:
