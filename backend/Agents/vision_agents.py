@@ -8,6 +8,8 @@ import base64
 from typing import List, Dict, Any
 import logging
 
+from backend.InferenceEngine.inference_engines import *
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -99,10 +101,10 @@ async def analyze_image_vllm(
     """
 
     image_agent_user_prompt = """
-Analyze the following image and provide a report detailing the features present. 
-Include a clear description of what is depicted in the image without any interpretation.
-Skip all signatures and names present in the images. Do not make the analysis too long.
-Keep a very brief and concise summary. Do not exceed one paragraph.
+    Analyze the following image and provide a report detailing the features present. 
+    Include a clear description of what is depicted in the image without any interpretation.
+    Please keep the summarization below 200 words. Describe the intent of the image, not the details of what is present.
+    The summarization needs to be brief and short.
     """
     
     return await generate_from_image(

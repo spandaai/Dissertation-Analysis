@@ -25,6 +25,10 @@ setup(
         "python-docx",
         "pdf2image",
         "sqlalchemy",
+        "pymysql",
+        "aiokafka",
+        "kafka-python",
+        "psycopg2",
         "pymysql"
     ],
     entry_points={
