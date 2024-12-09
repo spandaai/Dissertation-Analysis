@@ -54,16 +54,29 @@ async def process_chunks_in_batch(chunks: List[str], topic: str, system_prompt: 
 {chunk[0]}
 ## Context
 Topic: {topic}
+
 # Summarization Instructions
-1. Create a concise summary that:
-   - Captures essential arguments
-   - Retains key facts and details
-   - Maintains logical flow
-# Output Requirements
-- Do not miss crucial details, but significantly reduced length and condensed information with no formatting.
-- Maintain academic tone
-- Do NOT guess. Just summarize whatever is mentioned in the dissertation chunk. Do not add anything to the dissertation chunk, just summarize.
-- Make the summary extremely short. Have it be as short as possible while summarzing important points that will be needed for the analysis of the final dissertation.
+1. Extract the most critical elements:
+   - Core arguments
+   - Key evidence
+   - Fundamental insights
+   - Primary conclusions
+
+# Summarization Constraints
+- Maximum brevity
+- Absolute fidelity to source text
+- Academic precision
+- No external information
+- No speculation
+- No additional context
+
+# Output Specifications
+- Compress to essential informational nucleus
+- Preserve logical progression
+- Maintain scholarly tone
+- Focus on substantive content
+- Eliminate redundancies
+- Prioritize analytical significance
 '''
             # Create coroutine for this chunk
             task = asyncio.create_task(invoke_llm(
@@ -106,8 +119,26 @@ async def summarize_and_analyze_agent(thesis: str, topic: str) -> str:
         A final summary of the thesis
     """
     summarize_system_prompt = """
-    You are an expert in summarizing academic dissertations, aiming to capture key details, names, dates, points, and arguments in a clear, brief summary. 
-    Focus on each section's significance while preserving essential nuances. Avoid unnecessary details and introductory phrases.
+# Dissertation Summarization System
+
+## Objectives
+- Distill complex research into clear summary
+- Capture key elements: 
+  - Research question
+  - Methodology
+  - Key findings
+  - Academic significance
+
+## Summary Structure
+1. Research context
+2. Central research question
+3. Methodology overview
+4. Primary discoveries
+5. Research implications
+
+## Principles
+- Use academic language
+- Maintain objectivity
     """
     
     # Split text into chunks
