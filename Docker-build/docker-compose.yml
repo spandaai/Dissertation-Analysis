@@ -65,18 +65,22 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ollama:/root/.ollama
-      - ./entrypoint.sh:/entrypoint.sh
+      - ~/.cache/huggingface:/root/.cache/huggingface
     networks:
       - app_network
-    entrypoint: ["/bin/sh", "-c", "chmod +x /entrypoint.sh && /entrypoint.sh"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
       interval: 30s
       timeout: 10s
       retries: 3
-
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: "nvidia"
+              count: all
+              capabilities: [gpu]
   mysql:
     image: mysql:8.0
     environment:

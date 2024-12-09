@@ -20,6 +20,7 @@ tail -f ollama.log &
 tail_pid=$!
 
 echo "Waiting for the server to be ready..."
+echo "Waiting for the server to be ready..."
 until curl -s -f http://localhost:11434 >/dev/null 2>&1; do
     echo "Waiting for the server to start..."
     sleep 2
