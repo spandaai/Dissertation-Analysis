@@ -1,25 +1,16 @@
-
 version: '3.8'
 services:
   dissertation-backend:
-    image: prabhas264/dissertation-backend
+    image: prabhas264/dissertation-backend:ollama
     ports:
       - "8007:8006"
     env_file:
       - .env
-    environment:
-      OLLAMA_URL: "http://ollama:11434"
-      OLLAMA_MODEL_FOR_ANALYSIS: "llama3.2"
-      OLLAMA_MODEL_FOR_EXTRACTION: "llama3.2"
-      OLLAMA_MODEL_FOR_SUMMARY: "llama3.2"
-      OLLAMA_MODEL_FOR_IMAGE: "moondream"
-      OLLAMA_MODEL_FOR_SCORING: "llama3.2"
     command: ["da-start"]
     networks:
       - app_network
-    depends_on:
-      - kafka
-      - redis
+    pull_policy: always
+
   dissertation-frontend:
     image: prabhas264/dissertation-frontend:newUrl
     restart: always
@@ -29,6 +20,7 @@ services:
       - REACT_APP_API_URL=${REACT_APP_API_URL}
     networks:
       - app_network
+
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     environment:
@@ -38,6 +30,7 @@ services:
       - "2181:2181"
     networks:
       - app_network
+
   kafka:
     image: confluentinc/cp-kafka:latest
     ports:
@@ -53,18 +46,7 @@ services:
       - zookeeper
     networks:
       - app_network
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: kafka-ui
-    ports:
-      - "8080:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: "local"
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:9092"
-    depends_on:
-      - kafka
-    networks:
-      - app_network
+
   redis:
     image: redis:alpine
     container_name: redis
@@ -72,6 +54,7 @@ services:
       - "6379:6379"
     networks:
       - app_network
+
   ollama:
     image: ollama/ollama
     container_name: ollama
@@ -79,63 +62,17 @@ services:
       - "11434:11434"
     volumes:
       - ollama:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: "nvidia"
-              count: all
-              capabilities: [gpu]
+      - ./entrypoint.sh:/entrypoint.sh
     networks:
       - app_network
-  # vllmnemotrontext:
-  #   image: vllm/vllm-openai:latest
-  #   runtime: nvidia
-  #   restart: always
-  #   env_file: 
-  #     - .env
-  #   environment:
-  #     - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
-  #   ports:
-  #     - "8001:8000"
-  #   volumes:
-  #     - ~/.cache/huggingface:/root/.cache/huggingface
-  #   command: >  #change the model parameters accordingly
-  #     --model AMead10/Llama-3.2-3B-Instruct-AWQ 
-  #   ipc: host
-  #   networks:
-  #     - app_network
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             count: all
-  #             capabilities: [gpu]
-  # vllmqwenvision:
-  #   image: vllm/vllm-openai:latest
-  #   runtime: nvidia
-  #   restart: always
-  #   env_file: 
-  #     - .env
-  #   environment:
-  #     - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
-  #   ports:
-  #     - "8002:8000"
-  #   volumes:
-  #     - ~/.cache/huggingface:/root/.cache/huggingface
-  #   command: > #change the model parameters accordingly
-  #     --model Qwen/Qwen2-VL-2B-Instruct-AWQ
-  #   ipc: host
-  #   networks:
-  #     - app_network
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             count: all
-  #             capabilities: [gpu]
+    entrypoint: ["/bin/sh", "-c", "chmod +x /entrypoint.sh && /entrypoint.sh"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   mysql:
     image: mysql:8.0
     environment:
@@ -148,11 +85,13 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - app_network
+
 volumes:
   mysql_data:
     driver: local
   ollama:
     driver: local
+
 networks:
   app_network:
     external: true

@@ -29,7 +29,9 @@ setup(
         "aiokafka",
         "kafka-python",
         "psycopg2",
-        "pymysql"
+        "pymysql",
+        "mysql-connector-python",
+        "cryptography",
     ],
     entry_points={
         'console_scripts': [
