@@ -308,6 +308,27 @@ async def websocket_dissertation(websocket: WebSocket):
             await websocket.send_json({"type": "error", "data": {"message": "Invalid payload structure"}})
             return
 
+
+        # Check for specific metadata placeholders
+        metadata_issues = []
+        if request.pre_analysis.degree == "no_degree_found":
+            metadata_issues.append("degree")
+        if request.pre_analysis.name == "no_name_found":
+            metadata_issues.append("name")
+        if request.pre_analysis.topic == "no_topic_found":
+            metadata_issues.append("topic")
+
+        # If any metadata is problematic, send an error
+        if metadata_issues:
+            await websocket.send_json({
+                "type": "error", 
+                "data": {
+                    "message": f"Due to an unexpected input format of the file, the system was unable to extract {', '.join(metadata_issues)} information. Please report this issue to the development team with details about the dissertation file. Provide the file and context to help us improve our analysis capabilities."
+                }
+            })
+            await websocket.close()
+            return
+        
         # Extract details
         degree_of_student = request.pre_analysis.degree
         name_of_author = request.pre_analysis.name
