@@ -4,6 +4,11 @@ setlocal enabledelayedexpansion
 REM Enable error handling
 set ERRORLEVEL=0
 
+REM Load environment variables from the .env file
+for /f "tokens=1,2 delims==" %%a in ('type .env') do (
+    set %%a=%%b
+)
+
 REM Check if curl is installed
 where curl >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
@@ -28,18 +33,22 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo Server is ready. Starting to pull models...
 
-echo Pulling text model...
-docker exec -it ollama ollama pull qwen2.5:7b
-
-echo Pulling vision model...
-docker exec -it ollama ollama pull llava-phi3
+REM Iterate over models in the .env file and pull them
+for %%A in (
+    OLLAMA_MODEL_FOR_ANALYSIS
+    OLLAMA_MODEL_FOR_EXTRACTION
+    OLLAMA_MODEL_FOR_SUMMARY
+    OLLAMA_MODEL_FOR_IMAGE
+    OLLAMA_MODEL_FOR_SCORING
+) do (
+    set MODEL=!%%A!
+    echo Pulling model: !MODEL!
+    docker exec -it ollama ollama pull !MODEL!
+)
 
 echo All models pulled successfully. Server is running.
 
-REM Kill the tail process
-taskkill /PID %TAIL_PID% /F >nul 2>&1
-
-REM Wait for server process to end
+REM Kill the server process
 taskkill /PID %SERVER_PID% /F >nul 2>&1
 
 endlocal
