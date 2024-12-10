@@ -92,11 +92,13 @@ cd dissertation-analysis
 
 #### For Linux to build the docker image from source files
 ```bash
-./quickstart.sh
+cd Docker-build
+chmod +x build.sh
+./build.sh
 ```
 #### For Linux to use latest existing image of application
 ```bash
-
+cd Docker-build
 ```
 
 #### For Windows to build the docker image from source files
