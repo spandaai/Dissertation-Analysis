@@ -1,41 +1,80 @@
 #!/bin/bash
-set -e
 
-# Install curl if not already installed
-if ! command -v curl &> /dev/null; then
-    echo "curl not found, installing..."
-    apt-get update && apt-get install -y curl
+set -e  # Exit immediately on error
+set -o pipefail  # Capture errors in pipes
+set -o nounset  # Treat unset variables as errors
 
-else
-    echo "curl is already installed."
+# Load environment variables from .env file
+echo "========================================="
+echo "Loading environment variables from .env"
+echo "========================================="
+
+if [ ! -f .env ]; then
+  echo ".env file not found. Exiting..."
+  exit 1
 fi
 
+while IFS='=' read -r key value; do
+  if [[ $key && $value ]]; then
+    export "$key=$value"
+    echo "Loaded $key=$value"
+  fi
+done < .env
+
+# Check if curl is installed
+echo "========================================="
+echo "Checking for curl installation..."
+echo "========================================="
+
+if ! command -v curl &>/dev/null; then
+  echo "curl not found, installing..."
+  sudo apt-get update && sudo apt-get install -y curl
+else
+  echo "curl is already installed."
+fi
+
+# Start the Ollama server
+echo "========================================="
 echo "Starting Ollama server..."
-ollama serve >ollama.log 2>&1 &
-server_pid=$!
+echo "========================================="
+ollama serve > ollama.log 2>&1 &
+SERVER_PID=$!
 
-echo "Streaming Ollama server logs..."
-
-tail -f ollama.log &
-tail_pid=$!
-
+# Wait for the server to be ready
 echo "Waiting for the server to be ready..."
-echo "Waiting for the server to be ready..."
-until curl -s -f http://localhost:11434 >/dev/null 2>&1; do
-    echo "Waiting for the server to start..."
-    sleep 2
+until curl -s -f http://localhost:11434 > /dev/null 2>&1; do
+  echo "Waiting for the server to start..."
+  sleep 2
 done
 
 echo "Server is ready. Starting to pull models..."
 
-echo "Pulling llama3.2:3b-instruct-q2_K..."
-ollama pull llama3.2:3b-instruct-q2_K
+# Pull models based on environment variables
+echo "========================================="
+echo "Pulling models listed in .env file"
+echo "========================================="
 
-echo "Pulling llava-phi3..."
-ollama pull llava-phi3
+MODEL_VARS=("OLLAMA_MODEL_FOR_ANALYSIS" "OLLAMA_MODEL_FOR_EXTRACTION" "OLLAMA_MODEL_FOR_SUMMARY" "OLLAMA_MODEL_FOR_IMAGE" "OLLAMA_MODEL_FOR_SCORING")
 
+for MODEL_VAR in "${MODEL_VARS[@]}"; do
+  MODEL=${!MODEL_VAR:-}
+  if [ -n "$MODEL" ]; then
+    echo "Pulling model: $MODEL"
+    docker exec -it ollama ollama pull "$MODEL"
+    if [ $? -ne 0 ]; then
+      echo "Failed to pull model: $MODEL"
+      kill -9 $SERVER_PID
+      exit 1
+    fi
+  else
+    echo "Environment variable $MODEL_VAR is not defined. Skipping..."
+  fi
+done
+
+echo "========================================="
 echo "All models pulled successfully. Server is running."
+echo "========================================="
 
-kill $tail_pid
-
-wait $server_pid
+# Shutdown Ollama server
+echo "Shutting down Ollama server..."
+kill -9 $SERVER_PID
