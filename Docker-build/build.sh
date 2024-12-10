@@ -97,3 +97,5 @@ fi
 echo "========================================="
 echo "All steps completed successfully."
 echo "========================================="
+echo "All steps completed successfully! Please visit http://localhost:4000/ in order to use the application."
+echo "========================================="
