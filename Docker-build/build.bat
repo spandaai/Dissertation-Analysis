@@ -9,7 +9,7 @@ if not exist ".env" (
     echo .env file not found. Creating a default .env file...
     (
         echo # Hugging Face Token
-        echo HF_TOKEN=<your_hf_token>
+        echo HF_TOKEN=entertokenhere
         echo.
         echo # VLLM Services
         echo # VLLM_URL_FOR_ANALYSIS=http://vllmnemotrontext:8001/v1/chat/completions

@@ -14,7 +14,7 @@ if [ ! -f .env ]; then
   echo ".env file not found. Creating a default .env file..."
   cat <<EOL > .env
 # Hugging Face Token
-HF_TOKEN=<your_hf_token>
+HF_TOKEN=entertokenhere
 
 # VLLM Services
 # VLLM_URL_FOR_ANALYSIS=http://vllmnemotrontext:8001/v1/chat/completions
