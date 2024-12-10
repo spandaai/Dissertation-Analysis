@@ -5,6 +5,8 @@ __pycache__/
 # Ignore egg-info directory
 *.egg-info
 
+Docker-build/ollama.log
+Docker/ollama.log
 # Ignore .env file
 .env
 

@@ -27,8 +27,8 @@ done
 
 echo "Server is ready. Starting to pull models..."
 
-echo "Pulling llama3.2:3b-instruct-q2_K..."
-ollama pull llama3.2:3b-instruct-q2_K
+echo "Pulling qwen2.5:7b..."
+ollama pull qwen2.5:7b
 
 echo "Pulling llava-phi3..."
 ollama pull llava-phi3
