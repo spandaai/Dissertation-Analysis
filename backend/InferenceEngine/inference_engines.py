@@ -277,7 +277,8 @@ async def invoke_llm_ollama(system_prompt, user_prompt, ollama_model):
             "top_k": 1, 
             "top_p": 0, 
             "temperature": 0,
-            "seed": 100
+            "seed": 100,
+            "num_ctx": 4096
         },
         "stream": False
     }
@@ -320,7 +321,8 @@ async def stream_llm_ollama(
             "top_k": 1,
             "top_p": 0,
             "temperature": 0,
-            "seed": 100
+            "seed": 100,
+            "num_ctx": 4096
         },
         "stream": True
     }

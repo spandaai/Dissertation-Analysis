@@ -88,38 +88,24 @@ git clone <repository-url>
 cd dissertation-analysis
 ```
 
-### 3. Enter the Docker Build Directory
+### 3. Run Quickstart Script
+
+#### For Linux to build the docker image from source files
 ```bash
-cd Docker-build
+./quickstart.sh
 ```
-
-### 4. Create Environment Configuration
-Create a `.env` file and copy contents from `example.env`:
+#### For Linux to use latest existing image of application
 ```bash
-cp example.env .env
+
 ```
 
-Edit the `.env` file to add your Hugging Face token and any other required configurations:
-```
-HUGGINGFACE_TOKEN=your_huggingface_token_here
-# Add other necessary environment variables
-```
-
-### 5. Start Docker Containers
-```bash
-docker compose up -d
-```
-
-### 6. Run Entrypoint Script
-
-#### For Linux
-```bash
-./entrypoint.sh
-```
-
-#### For Windows
+#### For Windows to build the docker image from source files
 ```cmd
-entrypoint.bat
+./quickstart.bat
+```
+#### For Windows to use latest existing image of application
+```cmd
+
 ```
 
 ## Troubleshooting
