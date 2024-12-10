@@ -98,7 +98,9 @@ chmod +x build.sh
 ```
 #### For Linux to use latest existing image of application
 ```bash
-cd Docker-build
+cd Docker
+docker network create app_network
+docker compose up
 ```
 
 #### For Windows to build the docker image from source files
