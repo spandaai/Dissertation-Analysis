@@ -26,7 +26,7 @@ services:
       - app_network
 
   zookeeper:
-    image: confluentinc/cp-zookeeper:latest
+    image: confluentinc/cp-zookeeper:7.8.0
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -36,7 +36,7 @@ services:
       - app_network
 
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:7.8.0
     ports:
       - "9092:9092"
     environment:
@@ -60,7 +60,7 @@ services:
       - app_network
 
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:0.5.1
     container_name: ollama
     ports:
       - "11434:11434"
@@ -69,18 +69,11 @@ services:
     networks:
       - app_network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: "nvidia"
-              count: all
-              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+
   mysql:
     image: mysql:8.0
     environment:

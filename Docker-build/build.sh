@@ -74,11 +74,6 @@ else
 fi
 
 echo "========================================="
-echo "Waiting for 30 seconds before running entrypoint.sh..."
-echo "========================================="
-sleep 30
-
-echo "========================================="
 echo "Step 3: Running entrypoint.sh"
 echo "========================================="
 if [ -f entrypoint.sh ]; then
