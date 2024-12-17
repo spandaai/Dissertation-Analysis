@@ -15,7 +15,8 @@ if [ ! -f .env ]; then
 fi
 
 while IFS='=' read -r key value; do
-  if [[ $key && $value ]]; then
+  # Skip empty lines and comments
+  if [[ -n "$key" && "$key" != \#* && -n "$value" ]]; then
     export "$key=$value"
     echo "Loaded $key=$value"
   fi
