@@ -75,7 +75,3 @@ done
 echo "========================================="
 echo "All models pulled successfully. Server is running."
 echo "========================================="
-
-# Shutdown Ollama server
-echo "Shutting down Ollama server..."
-kill -9 $SERVER_PID
