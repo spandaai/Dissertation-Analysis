@@ -72,8 +72,4 @@ echo =========================================
 echo All models pulled successfully. Server is running.
 echo =========================================
 
-REM Kill the server process
-echo Shutting down Ollama server...
-taskkill /PID %SERVER_PID% /F >nul 2>&1
-
 endlocal

@@ -96,7 +96,7 @@ MAX_CONCURRENT_USERS=2
 REDIS_URL=redis://redis:6379
 
 # Database Configuration
-SQLALCHEMY_DATABASE_URL=mysql+pymysql://root:Spanda%%40123@mysql:3306/feedbackDb
+SQLALCHEMY_DATABASE_URL=mysql+pymysql://root:Spanda%40123@mysql:3306/feedbackDb
 EOF
     echo "Default .env file created successfully."
 else

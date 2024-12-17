@@ -95,7 +95,7 @@ if not exist ".env" (
         echo REDIS_URL=redis://redis:6379
         echo.
         echo # Database Configuration
-        echo SQLALCHEMY_DATABASE_URL=mysql+pymysql://root:Spanda%%40123@mysql:3306/feedbackDb
+        echo SQLALCHEMY_DATABASE_URL=mysql+pymysql://root:Spanda%40123@mysql:3306/feedbackDb
     ) > .env
     echo Default .env file created successfully.
 ) ELSE (
