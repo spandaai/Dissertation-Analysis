@@ -61,7 +61,7 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - "D:/spanda-ft-work/models:/root/.cache/huggingface"
+      - ~/.cache/huggingface:/root/.cache/huggingface
     networks:
       - app_network
     restart: unless-stopped
