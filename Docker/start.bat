@@ -2,6 +2,56 @@
 :: Set the working directory to the directory of the script
 cd /d "%~dp0"
 
+:: Prompt the user to choose deployment type
+echo =========================================
+echo Choose the docker deployment type:
+echo 1. Build Backend from Source
+echo 2. Use Latest Stable Backend Image
+echo =========================================
+set /p deploy_type="Enter your choice (1 or 2): "
+
+:: Prompt the user to choose CPU or GPU mode
+echo =========================================
+echo Choose the hardware mode:
+echo 1. CPU
+echo 2. GPU
+echo =========================================
+set /p mode="Enter your choice (1 or 2): "
+
+:: Determine the docker-compose file based on inputs
+if "%deploy_type%"=="1" (
+    if "%mode%"=="1" (
+        set "compose_file=docker-compose-build-cpu.yml"
+        echo Build from Source - CPU mode selected.
+    ) else if "%mode%"=="2" (
+        set "compose_file=docker-compose-build-gpu.yml"
+        echo Build from Source - GPU mode selected.
+    ) else (
+        echo Invalid hardware mode choice. Exiting.
+        exit /b 1
+    )
+) else if "%deploy_type%"=="2" (
+    if "%mode%"=="1" (
+        set "compose_file=docker-compose-image-cpu.yml"
+        echo Stable Image - CPU mode selected. Using %compose_file%
+    ) else if "%mode%"=="2" (
+        set "compose_file=docker-compose-image-gpu.yml"
+        echo Stable Image - GPU mode selected. Using %compose_file%
+    ) else (
+        echo Invalid hardware mode choice. Exiting.
+        exit /b 1
+    )
+) else (
+    echo Invalid deployment type choice. Exiting.
+    exit /b 1
+)
+
+:: Verify that the selected compose file exists
+if not exist "%compose_file%" (
+    echo Error: %compose_file% not found.
+    exit /b 1
+)
+
 echo =========================================
 echo Checking for .env file...
 echo =========================================
@@ -45,7 +95,7 @@ if not exist ".env" (
         echo REDIS_URL=redis://redis:6379
         echo.
         echo # Database Configuration
-        echo SQLALCHEMY_DATABASE_URL=mysql+pymysql://root:Spanda%%40123@mysql:3306/feedbackDb
+        echo SQLALCHEMY_DATABASE_URL=mysql+pymysql://root:Spanda%40123@mysql:3306/feedbackDb
     ) > .env
     echo Default .env file created successfully.
 ) ELSE (
@@ -63,9 +113,9 @@ if %errorlevel% neq 0 (
 )
 
 echo =========================================
-echo Step 2: Running Docker Compose
+echo Step 2: Running Docker Compose with %compose_file%
 echo =========================================
-docker-compose up -d
+docker compose -f "%compose_file%" up -d
 if %errorlevel% neq 0 (
     echo Docker Compose failed to start. Exiting script.
     exit /b %errorlevel%

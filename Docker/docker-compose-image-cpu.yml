@@ -12,7 +12,7 @@ services:
     pull_policy: always
 
   dissertation-frontend:
-    image: prabhas264/dissertation-frontend:newUrl
+    image: prabhas264/dissertation-frontend:1.0.0
     restart: always
     ports:
       - "4000:4000"
@@ -61,11 +61,9 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ollama:/root/.ollama
-      - ./entrypoint.sh:/entrypoint.sh
+      - ~/.cache/huggingface:/root/.cache/huggingface
     networks:
       - app_network
-    entrypoint: ["/bin/sh", "-c", "chmod +x /entrypoint.sh && /entrypoint.sh"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
