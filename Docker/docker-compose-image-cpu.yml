@@ -93,3 +93,52 @@ volumes:
 networks:
   app_network:
     external: true
+    
+  # vllmnemotrontext:
+  #   image: vllm/vllm-openai:latest
+  #   runtime: nvidia
+  #   restart: always
+  #   env_file: 
+  #     - .env
+  #   environment:
+  #     - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+  #   ports:
+  #     - "8001:8000"
+  #   volumes:
+  #     - ~/.cache/huggingface:/root/.cache/huggingface
+  #   command: >  #change the model parameters accordingly
+  #     --model AMead10/Llama-3.2-3B-Instruct-AWQ 
+  #   ipc: host
+  #   networks:
+  #     - app_network
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+  # vllmqwenvision:
+  #   image: vllm/vllm-openai:latest
+  #   runtime: nvidia
+  #   restart: always
+  #   env_file: 
+  #     - .env
+  #   environment:
+  #     - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+  #   ports:
+  #     - "8002:8000"
+  #   volumes:
+  #     - ~/.cache/huggingface:/root/.cache/huggingface
+  #   command: > #change the model parameters accordingly
+  #     --model Qwen/Qwen2-VL-2B-Instruct-AWQ
+  #   ipc: host
+  #   networks:
+  #     - app_network
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]

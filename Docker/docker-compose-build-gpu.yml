@@ -16,7 +16,9 @@ services:
       - redis
 
   dissertation-frontend:
-    image: prabhas264/dissertation-frontend:1.0.0
+    build:
+      context: ../frontend 
+      dockerfile: Dockerfile
     restart: always
     ports:
       - "4000:4000"
