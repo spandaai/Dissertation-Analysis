@@ -1,0 +1,29 @@
+
+/* Criteria container */
+.criteria-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.criteria-box {
+  background: #3a3a3a;
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.criteria-box:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.criteria-box h3 {
+  color: #f0f0f0;
+  margin-bottom: 8px;
+}
+
+.criteria-box strong {
+  color: #F4BC1C;
+}

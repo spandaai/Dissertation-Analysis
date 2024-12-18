@@ -1,0 +1,319 @@
+[33mcommit 3abc150271a51b366e6bc02b8cb7cab1b8665e41[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m)[m
+Author: APRABHASKUMAR <apk543211@gmail.com>
+Date:   Wed Dec 18 10:17:38 2024 +0530
+
+    [FIX] backend url works dynamically for docker and local build
+
+[1mdiff --git a/package-lock.json b/package-lock.json[m
+[1mindex 23fcb5d..afd16bf 100644[m
+[1m--- a/package-lock.json[m
+[1m+++ b/package-lock.json[m
+[36m@@ -1,105 +1,41 @@[m
+ {[m
+   "name": "dissertation_app",[m
+   "version": "1.0.0",[m
+[31m-  "lockfileVersion": 3,[m
+[32m+[m[32m  "lockfileVersion": 1,[m
+   "requires": true,[m
+[31m-  "packages": {[m
+[31m-    "": {[m
+[31m-      "name": "dissertation_app",[m
+[31m-      "version": "1.0.0",[m
+[31m-      "license": "ISC",[m
+[31m-      "dependencies": {[m
+[31m-        "@emotion/react": "^11.13.3",[m
+[31m-        "@emotion/styled": "^11.13.0",[m
+[31m-        "@fortawesome/fontawesome-svg-core": "^6.6.0",[m
+[31m-        "@fortawesome/free-brands-svg-icons": "^6.6.0",[m
+[31m-        "@fortawesome/free-solid-svg-icons": "^6.6.0",[m
+[31m-        "@fortawesome/react-fontawesome": "^0.2.2",[m
+[31m-        "@mui/icons-material": "^6.1.5",[m
+[31m-        "@mui/material": "^6.1.6",[m
+[31m-        "@mui/system": "^6.1.5",[m
+[31m-        "@react-pdf/renderer": "^4.0.0",[m
+[31m-        "apexcharts": "^3.54.0",[m
+[31m-        "axios": "^1.7.7",[m
+[31m-        "css-loader": "^7.1.2",[m
+[31m-        "docx": "^9.0.0",[m
+[31m-        "dompurify": "^3.1.7",[m
+[31m-        "dotenv": "^16.4.5",[m
+[31m-        "dotenv-webpack": "^8.1.0",[m
+[31m-        "file-saver": "^2.0.5",[m
+[31m-        "html2canvas": "^1.4.1",[m
+[31m-        "jspdf": "^2.5.2",[m
+[31m-        "jspdf-autotable": "^3.8.4",[m
+[31m-        "jszip": "^3.10.1",[m
+[31m-        "mammoth": "^1.8.0",[m
+[31m-        "marked": "^14.1.3",[m
+[31m-        "pdf-lib": "^1.17.1",[m
+[31m-        "pdf2json": "^3.1.4",[m
+[31m-        "pdfjs-dist": "^4.8.69",[m
+[31m-        "react": "^18.3.1",[m
+[31m-        "react-apexcharts": "^1.4.1",[m
+[31m-        "react-dom": "^18.3.1",[m
+[31m-        "react-dropzone": "^14.2.10",[m
+[31m-        "react-icons": "^5.3.0",[m
+[31m-        "react-pdf": "^9.1.1",[m
+[31m-        "react-router-dom": "^6.26.2",[m
+[31m-        "react-slick": "^0.30.2",[m
+[31m-        "slick-carousel": "^1.8.1",[m
+[31m-        "style-loader": "^4.0.0"[m
+[31m-      },[m
+[31m-      "devDependencies": {[m
+[31m-        "@babel/core": "^7.25.2",[m
+[31m-        "@babel/preset-env": "^7.25.4",[m
+[31m-        "@babel/preset-react": "^7.24.7",[m
+[31m-        "babel-loader": "^9.2.1",[m
+[31m-        "file-loader": "^6.2.0",[m
+[31m-        "html-webpack-plugin": "^5.6.0",[m
+[31m-        "webpack": "^5.95.0",[m
+[31m-        "webpack-cli": "^5.1.4",[m
+[31m-        "webpack-dev-server": "^5.1.0",[m
+[31m-        "worker-loader": "^3.0.8"[m
+[31m-      }[m
+[31m-    },[m
+[31m-    "node_modules/@ampproject/remapping": {[m
+[32m+[m[32m  "dependencies": {[m
+[32m+[m[32m    "@ampproject/remapping": {[m
+       "version": "2.3.0",[m
+       "resolved": "https://registry.npmjs.org/@ampproject/remapping/-/remapping-2.3.0.tgz",[m
+       "integrity": "sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw==",[m
+       "dev": true,[m
+[31m-      "dependencies": {[m
+[32m+[m[32m      "requires": {[m
+         "@jridgewell/gen-mapping": "^0.3.5",[m
+         "@jridgewell/trace-mapping": "^0.3.24"[m
+[31m-      },[m
+[31m-      "engines": {[m
+[31m-        "node": ">=6.0.0"[m
+       }[m
+     },[m
+[31m-    "node_modules/@babel/code-frame": {[m
+[31m-      "version": "7.25.7",[m
+[31m-      "resolved": "https://registry.npmjs.org/@babel/code-frame/-/code-frame-7.25.7.tgz",[m
+[31m-      "integrity": "sha512-0xZJFNE5XMpENsgfHYTw8FbX4kv53mFLn2i3XPoq69LyhYSCBJtitaHx9QnsVTrsogI4Z3+HtEfZ2/GFPOtf5g==",[m
+[31m-      "dependencies": {[m
+[31m-        "@babel/highlight": "^7.25.7",[m
+[32m+[m[32m    "@babel/code-frame": {[m
+[32m+[m[32m      "version": "7.26.2",[m
+[32m+[m[32m      "resolved": "https://registry.npmjs.org/@babel/code-frame/-/code-frame-7.26.2.tgz",[m
+[32m+[m[32m      "integrity": "sha512-RJlIHRueQgwWitWgF8OdFYGZX328Ax5BCemNGlqHfplnRT9ESi8JkFlvaVYbS+UubVY6dpv87Fs2u5M29iNFVQ==",[m
+[32m+[m[32m      "requires": {[m
+[32m+[m[32m        "@babel/helper-validator-identifier": "^7.25.9",[m
+[32m+[m[32m        "js-tokens": "^4.0.0",[m
+         "picocolors": "^1.0.0"[m
+[31m-      },[m
+[31m-      "engines": {[m
+[31m-        "node": ">=6.9.0"[m
+       }[m
+     },[m
+[31m-    "node_modules/@babel/compat-data": {[m
+[31m-      "version": "7.25.8",[m
+[31m-      "resolved": "https://registry.npmjs.org/@babel/compat-data/-/compat-data-7.25.8.tgz",[m
+[31m-      "integrity": "sha512-ZsysZyXY4Tlx+Q53XdnOFmqwfB9QDTHYxaZYajWRoBLuLEAwI2UIbtxOjWh/cFaa9IKUlcB+DDuoskLuKu56JA==",[m
+[31m-      "dev": true,[m
+[31m-      "engines": {[m
+[31m-        "node": ">=6.9.0"[m
+[31m-      }[m
+[32m+[m[32m    "@babel/compat-data": {[m
+[32m+[m[32m      "version": "7.26.3",[m
+[32m+[m[32m      "resolved": "https://registry.npmjs.org/@babel/compat-data/-/compat-data-7.26.3.tgz",[m
+[32m+[m[32m      "integrity": "sha512-nHIxvKPniQXpmQLb0vhY3VaFb3S0YrTAwpOWJZh1wn3oJPjJk9Asva204PsBdmAE8vpzfHudT8DB0scYvy9q0g==",[m
+[32m+[m[32m      "dev": true[m
+     },[m
+[31m-    "node_modules/@babel/core": {[m
+[32m+[m[32m    "@babel/core": {[m
+       "version": "7.25.8",[m
+       "resolved": "https://registry.npmjs.org/@babel/core/-/core-7.25.8.tgz",[m
+       "integrity": "sha512-Oixnb+DzmRT30qu9d3tJSQkxuygWm32DFykT4bRoORPa9hZ/L4KhVB/XiRm6KG+roIEM7DBQlmg27kw2HZkdZg==",[m
+       "dev": true,[m
+[31m-      "dependencies": {[m
+[32m+[m[32m      "requires": {[m
+         "@ampproject/remapping": "^2.2.0",[m
+         "@babel/code-frame": "^7.25.7",[m
+         "@babel/generator": "^7.25.7",[m
+[36m@@ -116,1359 +52,856 @@[m
+         "json5": "^2.2.3",[m
+         "semver": "^6.3.1"[m
+       },[m
+[31m-      "engines": {[m
+[31m-        "node": ">=6.9.0"[m
+[31m-      },[m
+[31m-      "funding": {[m
+[31m-        "type": "opencollective",[m
+[31m-        "url": "https://opencollective.com/babel"[m
+[31m-      }[m
+[31m-    },[m
+[31m-    "node_modules/@babel/core/node_modules/semver": {[m
+[31m-      "version": "6.3.1",[m
+[31m-      "resolved": "https://registry.npmjs.org/semver/-/semver-6.3.1.tgz",[m
+[31m-      "integrity": "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==",[m
+[31m-      "dev": true,[m
+[31m-      "bin": {[m
+[31m-        "semver": "bin/semver.js"[m
+[32m+[m[32m      "dependencies": {[m
+[32m+[m[32m        "convert-source-map": {[m
+[32m+[m[32m          "version": "2.0.0",[m
+[32m+[m[32m          "resolved": "https://registry.npmjs.org/convert-source-map/-/convert-source-map-2.0.0.tgz",[m
+[32m+[m[32m          "integrity": "sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==",[m
+[32m+[m[32m          "dev": true[m
+[32m+[m[32m        },[m
+[32m+[m[32m        "semver": {[m
+[32m+[m[32m          "version": "6.3.1",[m
+[32m+[m[32m          "resolved": "https://registry.npmjs.org/semver/-/semver-6.3.1.tgz",[m
+[32m+[m[32m          "integrity": "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==",[m
+[32m+[m[32m          "dev": true[m
+[32m+[m[32m        }[m
+       }[m
+     },[m
+[31m-    "node_modules/@babel/generator": {[m
+[31m-      "version": "7.25.7",[m
+[31m-      "resolved": "https://registry.npmjs.org/@babel/generator/-/generator-7.25.7.tgz",[m
+[31m-      "integrity": "sha512-5Dqpl5fyV9pIAD62yK9P7fcA768uVPUyrQmqpqstHWgMma4feF1x/oFysBCVZLY5wJ2GkMUCdsNDnGZrPoR6rA==",[m
+[31m-      "dependencies": {[m
+[31m-        "@babel/types": "^7.25.7",[m
+[32m+[m[32m    "@babel/generator": {[m
+[32m+[m[32m      "version": "7.26.3",[m
+[32m+[m[32m      "resolved": "https://registry.npmjs.org/@babel/generator/-/generator-7.26.3.tgz",[m
+[32m+[m[32m      "integrity": "sha512-6FF/urZvD0sTeO7k6/B15pMLC4CHUv1426lzr3N01aHJTl046uCAh9LXW/fzeXXjPNCJ6iABW5XaWOsIZB93aQ==",[m
+[32m+[m[32m      "requires": {[m
+[32m+[m[32m        "@babel/parser": "^7.26.3",[m
+[32m+[m[32m        "@babel/types": "^7.26.3",[m
+         "@jridgewell/gen-mapping": "^0.3.5",[m
+         "@jridgewell/trace-mapping": "^0.3.25",[m
+         "jsesc": "^3.0.2"[m
+[31m-      },[m
+[31m-      "engines": {[m
+[31m-        "node": ">=6.9.0"[m
+[31m-      }[m
+[31m-    },[m
+[31m-    "node_modules/@babel/helper-annotate-as-pure": {[m
+[31m-      "version": "7.25.7",[m
+[31m-      "resolved": "https://registry.npmjs.org/@babel/helper-annotate-as-pure/-/helper-annotate-as-pure-7.25.7.tgz",[m
+[31m-      "integrity": "sha512-4xwU8StnqnlIhhioZf1tqnVWeQ9pvH/ujS8hRfw/WOza+/a+1qv69BWNy+oY231maTCWgKWhfBU7kDpsds6zAA==",[m
+[31m-      "dev": true,[m
+[31m-      "dependencies": {[m
+[31m-        "@babel/types": "^7.25.7"[m
+[31m-      },[m
+[31m-      "engines": {[m
+[31m-        "node": ">=6.9.0"[m
+       }[m
+     },[m
+[31m-    "node_modules/@babel/helper-builder-binary-assignment-operator-visitor": {[m
+[31m-      "version": "7.25.7",[m
+[31m-      "resolved": "https://registry.npmjs.org/@babel/helper-builder-binary-assignment-operator-visitor/-/helper-builder-binary-assignment-operator-visitor-7.25.7.tgz",[m
+[31m-      "integrity": "sha512-12xfNeKNH7jubQNm7PAkzlLwEmCs1tfuX3UjIw6vP6QXi+leKh6+LyC/+Ed4EIQermwd58wsyh070yjDHFlNGg==",[m
+[32m+[m[32m    "@babel/helper-annotate-as-pure": {[m
+[32m+[m[32m      "version": "7.25.9",[m
+[32m+[m[32m      "resolved": "https://registry.npmjs.org/@babel/helper-annotate-as-pure/-/helper-annotate-as-pure-7.25.9.tgz",[m
+[32m+[m[32m      "integrity": "sha512-gv7320KBUFJz1RnylIg5WWYPRXKZ884AGkYpgpWW02TH66Dl+HaC1t1CKd0z3R4b6hdYEcmrNZHUmfCP+1u3/g==",[m
+       "dev": true,[m
+[31m-      "dependencies": {[m
+[31m-        "@babel/traverse": "^7.25.7",[m
+[31m-        "@babel/types": "^7.25.7"[m
+[31m-      },[m
+[31m-      "engines": {[m
+[31m-        "node": ">=6.9.0"[m
+[32m+[m[32m      "requires": {[m
+[32m+[m[32m        "@babel/types": "^7.25.9"[m
+       }[m
+     },[m
+[31m-    "node_modules/@babel/helper-compilation-targets": {[m
+[31m-      "version": "7.25.7",[m
+[31m-      "resolved": "https://registry.npmjs.org/@babel/helper-compilation-targets/-/helper-compilation-targets-7.25.7.tgz",[m
+[31m-      "integrity": "sha512-DniTEax0sv6isaw6qSQSfV4gVRNtw2rte8HHM45t9ZR0xILaufBRNkpMifCRiAPyvL4ACD6v0gfCwCmtOQaV4A==",[m
+[32m+[m[32m    "@babel/helper-compilation-targets": {[m
+[32m+[m[32m      "version": "7.25.9",[m
+[32m+[m[32m      "resolved": "https://registry.npmjs.org/@babel/helper-compilation-targets/-/helper-compilation-targets-7.25.9.tgz",[m
+[32m+[m[32m      "integrity": "sha512-j9Db8Suy6yV/VHa4qzrj9yZfZxhLWQdVnRlXxmKLYlhWUVB1sB2G5sxuWYXk/whHD9iW76PmNzxZ4UCnTQTVEQ==",[m
+       "dev": true,[m
+[31m-      "dependencies": {[m
+[31m-        "@babel/compat-data": "^7.25.7",[m
+[31m-        "@babel/helper-validator-option": "^7.25.7",[m
+[32m+[m[32m      "requires": {[m
+[32m+[m[32m        "@babel/compat-data": "^7.25.9",[m
+[32m+[m[32m        "@babel/helper-validator-option": "^7.25.9",[m
+         "browserslist": "^4.24.0",[m
+         "lru-cache": "^5.1.1",[m
+         "semver": "^6.3.1"[m
+       },[m
+[31m-      "engines": {[m
+[31m-        "node": ">=6.9.0"[m
+[31m-      }[m
+[31m-    },[m
+[31m-    "node_modules/@babel/helper-compilation-targets/node_modules/semver": {[m
+[31m-      "version": "6.3.1",[m
+[31m-      "resolved": "https://registry.npmjs.org/semver/-/semver-6.3.1.tgz",[m
+[31m-      "integrity": "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==",[m
+[31m-      "dev": true,[m
+[31m-      "bin": {[m
+[31m-        "semver": "bin/semver.js"[m
+[32m+[m[32m      "dependencies": {[m
+[32m+[m[32m        "semver": {[m
+[32m+[m[32m          "version": "6.3.1",[m
+[32m+[m[32m          "resolved": "https://registry.npmjs.org/semver/-/semver-6.3.1.tgz",[m
+[32m+[m[32m          "integrity": "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==",[m
+[32m+[m[32m          "dev": true[m
+[32m+[m[32m        }[m
+       }[m
+     },[m
+[31m-    "node_modules/@babel/helper-create-class-features-plugin": {[m
+[31m-      "version": "7.25.7",[m
+[31m-      "resolved": "https://registry.npmjs.org/@babel/helper-create-class-features-plugin/-/helper-create-class-features-plugin-7.25.7.tgz",[m
+[31m-      "integrity": "sha512-bD4WQhbkx80mAyj/WCm4ZHcF4rDxkoLFO6ph8/5/mQ3z4vAzltQXAmbc7GvVJx5H+lk5Mi5EmbTeox5nMGCsbw==",[m
+[32m+[m[32m    "@babel/helper-create-class-features-plugin": {[m
+[32m+[m[32m      "version": "7.25.9",[m
+[32m+[m[32m      "resolved": "https://registry.npmjs.org/@babel/helper-create-class-features-plugin/-/helper-create-class-features-plugin-7.25.9.tgz",[m
+[32m+[m[32m      "integrity": "sha512-UTZQMvt0d/rSz6KI+qdu7GQze5TIajwTS++GUozlw8VBJDEOAqSXwm1WvmYEZwqdqSGQshRocPDqrt4HBZB3fQ==",[m
+       "dev": true,[m
+[31m-      "dependencies": {[m
+[31m-        "@babel/helper-annotate-as-pure": "^7.25.7",[m
+[31m-        "@babel/helper-member-expression-to-functions": "^7.25.7",[m
+[31m-        "@babel/helper-optimise-call-expression": "^7.25.7",[m
+[31m-        "@babel/helper-replace-supers": "^7.25.7",[m
+[31m-        "@babel/helper-skip-transparent-expression-wrappers": "^7.25.7",[m
+[31m-        "@babel/traverse": "^7.25.7",[m
+[32m+[m[32m      "requires": {[m
+[32m+[m[32m        "@babel/helper-annotate-as-pure": "^7.25.9",[m
+[32m+[m[32m        "@babel/helper-member-expression-to-functions": "^7.25.9",[m
+[32m+[m[32m        "@babel/helper-optimise-call-expression": "^7.25.9",[m
+[32m+[m[32m        "@babel/helper-replace-supers": "^7.25.9",[m
+[32m+[m[32m        "@babel/helper-skip-transparent-expression-wrappers": "^7.25.9",[m
+[32m+[m[32m        "@babel/traverse": "^7.25.9",[m
+         "semver": "^6.3.1"[m
+       },[m
+[31m-      "engines": {[m
+[31m-        "node": ">=6.9.0"[m
+[31m-      },[m
+[31m-      "peerDependencies": {[m
+[31m-        "@babel/core": "^7.0.0"[m
+[31m-      }[m
+[31m-    },[m
+[31m-    "node_modules/@babel/helper-create-class-features-plugin/node_modules/semver": {[m
+[31m-      "version": "6.3.1",[m
+[31m-      "resolved": "https://registry.npmjs.org/semver/-/semver-6.3.1.tgz",[m
+[31m-      "integrity": "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==",[m
+[31m-      "dev": true,[m
+[31m-      "bin": {[m
+[31m-        "semver": "bin/semver.js"[m
+[32m+[m[32m      "dependencies": {[m
+[32m+[m[32m        "semver": {[m
+[32m+[m[32m          "version": "6.3.1",[m
+[32m+[m[32m          "resolved": "https://registry.npmjs.org/semver/-/semver-6.3.1.tgz",[m
+[32m+[m[32m          "integrity": "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==",[m
+[32m+[m[32m          "dev": true[m
+[32m+[m[32m        }[m
+       }[m
+     },[m
+[31m-    "node_modules/@babel/helper-create-regexp-features-plugin": {[m
+[31m-      "version": "7.25.7",[m
+[31m-      "resolved": "https://registry.npmjs.org/@babel/helper-create-regexp-features-plugin/-/helper-create-regexp-features-plugin-7.25.7.tgz",[m
+[31m-      "integrity": "sha512-byHhumTj/X47wJ6C6eLpK7wW/WBEcnUeb7D0FNc/jFQnQVw7DOso3Zz5u9x/zLrFVkHa89ZGDbkAa1D54NdrCQ==",[m
+[32m+[m[32m    "@babel/helper-create-regexp-features-plugin": {[m
+[32m+[m[32m      "version": "7.26.3",[m
+[32m+[m[32m      "resolved": "https://registry.npmjs.org/@babel/helper-create-regexp-features-plugin/-/helper-create-regexp-features-plugin-7.26.3.tgz",[m
+[32m+[m[32m      "integrity": "sha512-G7ZRb40uUgdKOQqPLjfD12ZmGA54PzqDFUv2BKImnC9QIfGhIHKvVML0oN8IUiDq4iRqpq74ABpvOaerfWdong==",[m
+       "dev": true,[m
+[31m-      "dependencies": {[m
+[31m-        "@babel/helper-annotate-as-pure": "^7.25.7",[m
+[31m-        "regexpu-core": "

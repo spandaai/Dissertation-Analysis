@@ -115,7 +115,7 @@ if %errorlevel% neq 0 (
 echo =========================================
 echo Step 2: Running Docker Compose with %compose_file%
 echo =========================================
-docker compose -f "%compose_file%" up -d
+docker compose -f "%compose_file%" up -d --build
 if %errorlevel% neq 0 (
     echo Docker Compose failed to start. Exiting script.
     exit /b %errorlevel%
