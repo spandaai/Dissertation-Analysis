@@ -58,7 +58,7 @@ for %%A in (
     set MODEL=!%%A!
     if defined MODEL (
         echo Pulling model: !MODEL!
-        docker exec -it ollama ollama pull !MODEL!
+        docker exec -it ollama-platform ollama pull !MODEL!
         if %ERRORLEVEL% NEQ 0 (
             echo Failed to pull model: !MODEL!
             exit /b 1

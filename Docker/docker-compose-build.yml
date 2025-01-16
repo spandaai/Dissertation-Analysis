@@ -11,9 +11,6 @@ services:
     command: ["da-start"]
     networks:
       - app_network
-    depends_on:
-      - kafka
-      - redis
 
   dissertation-frontend:
     build:

@@ -61,7 +61,7 @@ for MODEL_VAR in "${MODEL_VARS[@]}"; do
   MODEL=${!MODEL_VAR:-}
   if [ -n "$MODEL" ]; then
     echo "Pulling model: $MODEL"
-    docker exec -it ollama ollama pull "$MODEL"
+    docker exec -it ollama-platform ollama pull "$MODEL"
     if [ $? -ne 0 ]; then
       echo "Failed to pull model: $MODEL"
       kill -9 $SERVER_PID
