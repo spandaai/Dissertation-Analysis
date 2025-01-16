@@ -11,37 +11,15 @@ echo "2. Use Latest Stable Backend Image"
 echo "========================================="
 read -p "Enter your choice (1 or 2): " deploy_type
 
-# Prompt the user to choose CPU or GPU mode
-echo "========================================="
-echo "Choose the hardware mode:"
-echo "1. CPU"
-echo "2. GPU"
-echo "========================================="
-read -p "Enter your choice (1 or 2): " mode
 
 # Determine the docker-compose file based on inputs
 if [[ "$deploy_type" == "1" ]]; then
-    if [[ "$mode" == "1" ]]; then
-        compose_file="docker-compose-build-cpu.yml"
-        echo "Build from Source - CPU mode selected."
-    elif [[ "$mode" == "2" ]]; then
-        compose_file="docker-compose-build-gpu.yml"
-        echo "Build from Source - GPU mode selected."
-    else
-        echo "Invalid hardware mode choice. Exiting."
-        exit 1
-    fi
+        compose_file="docker-compose-build.yml"
+        echo "Building from Source"
 elif [[ "$deploy_type" == "2" ]]; then
-    if [[ "$mode" == "1" ]]; then
-        compose_file="docker-compose-image-cpu.yml"
+
+        compose_file="docker-compose-image.yml"
         echo "Stable Image - CPU mode selected. Using $compose_file"
-    elif [[ "$mode" == "2" ]]; then
-        compose_file="docker-compose-image-gpu.yml"
-        echo "Stable Image - GPU mode selected. Using $compose_file"
-    else
-        echo "Invalid hardware mode choice. Exiting."
-        exit 1
-    fi
 else
     echo "Invalid deployment type choice. Exiting."
     exit 1
