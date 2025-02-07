@@ -37,7 +37,7 @@ import httpx
 from typing import AsyncGenerator, List, Dict, Any
 import aiohttp
 import base64
-from dissertation_analysis.domain.nlp_utils import encode_bytes_to_base64
+from dissertation_analysis.domain.data_preprocessing import encode_bytes_to_base64
 import logging
 from dotenv import load_dotenv
 

@@ -48,8 +48,7 @@ from docx.parts.image import ImagePart
 from fastapi import UploadFile
 from dotenv import load_dotenv
 from dissertation_analysis.common.configs import ModelType
-from dissertation_analysis.domain.nlp_utils import clean_text, extract_and_clean_text_from_page, resize_image
-from dissertation_analysis.domain.data_preprocessing import get_first_n_words, chunk_text
+from dissertation_analysis.domain.data_preprocessing import get_first_n_words, chunk_text, clean_text, extract_and_clean_text_from_page, resize_image
 from dissertation_analysis.domain.inference_client import generate_from_image, generate_from_image_ollama
 from dissertation_analysis.platform.service_client import invoke_llm
 import logging
