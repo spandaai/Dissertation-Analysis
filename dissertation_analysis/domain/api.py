@@ -393,19 +393,6 @@ async def score_criteria(request: ScoringRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Endpoint to process initial agents (extract topic, degree, and name)
-# --------------------------------------------------------------------
-# Description:
-# This endpoint concurrently extracts the research topic, degree information, and author's name 
-# from the first few pages of the document
-async def process_initial_agents(request: DocumentText):
-    try:
-        results = await business_logic.process_initial_agents(request.document_text)
-        return results
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 ####################################################################################
 ###########################business_logic.py endpoints end##########################
 ####################################################################################
