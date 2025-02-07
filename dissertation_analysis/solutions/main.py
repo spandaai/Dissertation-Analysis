@@ -1,12 +1,58 @@
-from backend.src.utils import *
-from backend.Agents.text_agents import *
-from backend.Agents.vision_agents import *
-from backend.src.types import QueryRequestThesisAndRubric, QueryRequestThesis,PostData,FeedbackData ,User, UserScore, Feedback
-from backend.src.logic import *
-from backend.src.kafka_utils import *
+"""
+Dissertation Analysis Service - FastAPI Application
+
+This FastAPI application provides a REST and WebSocket API for analyzing dissertations, managing user data, and handling feedback.
+
+Core Functionality:
+- Processes and analyzes dissertation documents (PDF, DOCX)
+- Manages WebSocket connections for real-time analysis updates
+- Integrates with Kafka for message queuing and processing
+- Provides database operations for user data and feedback storage
+
+Dependencies:
+- FastAPI for API framework
+- SQLAlchemy for database operations
+- Kafka for message queuing
+- WebSockets for real-time communication
+- PDF and DOCX processing utilities
+
+Key Components:
+1. Database:
+   - Uses SQLAlchemy with configurable database URL
+   - Manages user data, scores, and feedback
+
+2. WebSocket Endpoints:
+   - /api/ws/notifications: Handles notification updates
+   - /api/ws/dissertation_analysis: Main analysis endpoint
+   - /api/ws/dissertation_analysis_reconnect: Handles reconnections
+
+3. REST Endpoints:
+   - /api/postUserData: Stores user and score data
+   - /api/submitFeedback: Stores user feedback
+   - /api/extract_text_from_file_and_analyze_images: Processes document files
+   - /api/pre_analyze: Performs initial thesis analysis
+
+4. Kafka Integration:
+   - Implements producer-consumer pattern
+   - Handles message queuing for concurrent user management
+   - Maximum concurrent users configurable via environment
+
+Configuration:
+- Uses environment variables for database and Kafka settings
+- Implements CORS middleware
+- Configures logging
+
+The service runs on port 8006 and includes error handling and connection management.
+"""
+
+from dissertation_analysis.common.types import QueryRequestThesisAndRubric, QueryRequestThesis,PostData,FeedbackData ,User, UserScore, Feedback
+from dissertation_analysis.domain.kafka_utils import *
+from dissertation_analysis.domain.nlp_utils import process_docx, process_pdf
+from dissertation_analysis.domain.business_logic import summarize_and_analyze_agent, process_initial_agents
+
 from sqlalchemy.orm import Session
 import uvicorn
-from fastapi import FastAPI, WebSocket, UploadFile, File, HTTPException ,Depends,  WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, UploadFile, File, HTTPException ,Depends, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware 
 import logging
 from sqlalchemy.orm import Session
@@ -14,6 +60,9 @@ from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from aiokafka import AIOKafkaProducer
 import uuid
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.exc import OperationalError
 
 load_dotenv()
 

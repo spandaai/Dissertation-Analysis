@@ -1,13 +1,58 @@
-import json
-import httpx
-import os
-from dotenv import load_dotenv
-from typing import AsyncGenerator, Optional
-from enum import Enum
+"""
+LLM Integration Module for Image and Text Generation
 
+This module provides interfaces for interacting with VLLM and Ollama LLMs for both 
+text and image analysis tasks. Contains separate implementations for each platform's 
+API specifications.
+
+Components:
+1. VLLM Functions:
+  - Non-streaming text generation
+  - Streaming text generation with cancellation
+  - Custom parameter handling (temperature, top_p, top_k, seed)
+
+2. Ollama Functions:
+  - Non-streaming text generation
+  - Streaming text generation with cancellation
+  - Image analysis capabilities
+
+3. Helper Functions:
+  - Image processing (base64 encoding)
+  - Multimodal chat message handling
+  - Custom API format adaptations
+
+Configuration:
+- Uses environment variables for service URLs and model names
+- Supports both VLLM and Ollama endpoints
+- Configurable model parameters
+
+Note: This is a service integration module focusing on LLM API interactions.
+Each section (VLLM, Ollama, Helpers) is clearly demarcated with comments 
+for easy navigation.
+"""
+
+import json
+import os
+import httpx
+from typing import AsyncGenerator, List, Dict, Any
+import aiohttp
+import base64
+from dissertation_analysis.domain.nlp_utils import encode_bytes_to_base64
+import logging
+from dotenv import load_dotenv
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
+
+vllm_url_for_image = os.getenv("VLLM_URL_FOR_IMAGE")
+vllm_model_for_image = os.getenv("VLLM_MODEL_FOR_IMAGE")
+
+# Access the environment variables
+ollama_url = os.getenv("OLLAMA_URL")
+ollama_model_for_image = os.getenv("OLLAMA_MODEL_FOR_IMAGE")
 
 # Access the environment variables
 ollama_url = os.getenv("OLLAMA_URL")
@@ -21,122 +66,11 @@ class CancellationToken:
     def cancel(self):
         self.is_cancelled = True
 
-class ModelType(Enum):
-    ANALYSIS = "ANALYSIS"
-    EXTRACTION = "EXTRACTION"
-    SUMMARY = "SUMMARY"
-    IMAGE = "IMAGE"
-    SCORING = "SCORING"
-
-class UrlType(Enum):
-    ANALYSIS = "ANALYSIS"
-    EXTRACTION = "EXTRACTION"
-    SUMMARY = "SUMMARY"
-    IMAGE = "IMAGE"
-    SCORING = "SCORING"
-
-class EnvConfig:
-    def __init__(self):
-        # VLLM Configuration
-        self.vllm_url = os.getenv("VLLM_MODEL_FOR_ANALYSIS")
-        self.vllm_models = {
-            ModelType.ANALYSIS: os.getenv("VLLM_MODEL_FOR_ANALYSIS"),
-            ModelType.EXTRACTION: os.getenv("VLLM_MODEL_FOR_EXTRACTION"),
-            ModelType.SUMMARY: os.getenv("VLLM_MODEL_FOR_SUMMARY"),
-            ModelType.IMAGE: os.getenv("VLLM_MODEL_FOR_IMAGE"),
-            ModelType.SCORING: os.getenv("VLLM_MODEL_FOR_SCORING"),
-        }
-        self.vllm_urls = {
-            UrlType.ANALYSIS: os.getenv("VLLM_URL_FOR_ANALYSIS"),
-            UrlType.EXTRACTION: os.getenv("VLLM_URL_FOR_EXTRACTION"),
-            UrlType.SUMMARY: os.getenv("VLLM_URL_FOR_SUMMARY"),
-            UrlType.IMAGE: os.getenv("VLLM_URL_FOR_IMAGE"),
-            UrlType.SCORING: os.getenv("VLLM_URL_FOR_SCORING"),
-        }
         
-        # Ollama Configuration
-        self.ollama_url = os.getenv("OLLAMA_URL")
-        self.ollama_models = {
-            ModelType.ANALYSIS: os.getenv("OLLAMA_MODEL_FOR_ANALYSIS"),
-            ModelType.EXTRACTION: os.getenv("OLLAMA_MODEL_FOR_EXTRACTION"),
-            ModelType.SUMMARY: os.getenv("OLLAMA_MODEL_FOR_SUMMARY"),
-            ModelType.IMAGE: os.getenv("OLLAMA_MODEL_FOR_IMAGE"),
-            ModelType.SCORING: os.getenv("OLLAMA_MODEL_FOR_SCORING"),
-        }
-    
-    def is_vllm_available(self, model_type: ModelType) -> bool:
-        """Check if VLLM is configured and available for specific model type"""
-        url_type = UrlType[model_type.value]  # Convert ModelType to corresponding UrlType
-        return bool(self.vllm_urls.get(url_type) and self.vllm_models.get(model_type))
-    
-    def is_ollama_available(self, model_type: ModelType) -> bool:
-        """Check if Ollama is configured and available for specific model type"""
-        return bool(self.ollama_url and self.ollama_models.get(model_type))
-    
-    def get_model_and_url(self, model_type: ModelType) -> tuple[Optional[str], Optional[str]]:
-        """Get the appropriate model and URL based on availability"""
-        # First try VLLM
-        if self.is_vllm_available(model_type):
-            url_type = UrlType[model_type.value]  # Convert ModelType to corresponding UrlType
-            return self.vllm_models[model_type], self.vllm_urls[url_type]
-        # Then try Ollama
-        elif self.is_ollama_available(model_type):
-            return self.ollama_models[model_type], self.ollama_url
-        return None, None
-
-async def invoke_llm(
-    system_prompt: str,
-    user_prompt: str,
-    model_type: ModelType,
-    config: Optional[EnvConfig] = None
-) -> dict:
-    """
-    Unified interface for invoking LLM models. Automatically chooses between VLLM and Ollama
-    based on availability, with priority given to VLLM.
-    """
-    if config is None:
-        config = EnvConfig()
-    
-    model, url = config.get_model_and_url(model_type)
-    
-    if not model or not url:
-        return {"error": f"No LLM service available for model type {model_type.value}"}
-    
-    if config.is_vllm_available(model_type):
-        return await invoke_llm_vllm(system_prompt, user_prompt, model, url)
-    else:
-        return await invoke_llm_ollama(system_prompt, user_prompt, model)
-    
-    
-async def stream_llm(
-    system_prompt: str,
-    user_prompt: str,
-    model_type: ModelType,
-    cancellation_token: CancellationToken,
-    config: Optional[EnvConfig] = None
-) -> AsyncGenerator[str, None]:
-    """Unified streaming interface with cancellation support"""
-    if config is None:
-        config = EnvConfig()
-    
-    model, url = config.get_model_and_url(model_type)
-    
-    if not model or not url:
-        yield f"Error: No LLM service available for model type {model_type.value}"
-        return
-    
-    if config.is_vllm_available(model_type):
-        async for chunk in stream_llm_vllm(system_prompt, user_prompt, model, url, cancellation_token):
-            yield chunk
-    else:
-        async for chunk in stream_llm_ollama(system_prompt, user_prompt, model, cancellation_token):
-            yield chunk
-
 ##############################################################################################################################
 ##############################################################################################################################
 ###############################################VLLM GENERATION FUNCTIONS START################################################
 ##############################################################################################################################
-
 
 async def invoke_llm_vllm(
     system_prompt: str, 
@@ -353,3 +287,155 @@ async def stream_llm_ollama(
 ##############################################################################################################################
 ################################################OLLAMA GENERATION FUNCTIONS STOP##############################################
 ##############################################################################################################################
+
+
+
+###############################################################################################################################################################
+#########################################HELPER FUNCTIONS######################################################################################################
+###############################################################################################################################################################
+###############################################################################################################################################################
+
+async def generate_from_image_ollama(image_data: bytes, prompt: str):
+    try:
+        # Encode the binary image data to Base64
+        encoded_image = base64.b64encode(image_data).decode('utf-8')
+        
+        data = {
+            "model": ollama_model_for_image,
+            "prompt": prompt,
+            "images": [encoded_image],
+            "options": {
+                "top_k": 1, 
+                "top_p": 0, 
+                "temperature": 0,
+                "seed": 100
+            },
+            "stream": False
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f"{ollama_url}/api/generate", json=data) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    print("########################################")
+                    print(result)
+                    return result
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Image analysis failed with status {response.status}: {error_text}")
+                    return {"response": "Failed to analyze image"}
+    except Exception as e:
+        logger.error(f"Error in generate_from_image: {str(e)}")
+        return {"response": "Failed to analyze image"}
+
+
+
+async def generate_from_image(
+    image_data: bytes,
+    prompt: str,
+    model: str = vllm_model_for_image,
+    base_url: str = vllm_url_for_image
+) -> Dict[str, Any]:
+    """
+    Generate response from image using custom API format
+    
+    Args:
+        image_data: Image bytes
+        prompt: The prompt text
+        model: Model identifier
+        base_url: API base URL
+    
+    Returns:
+        Dict containing the response
+    """
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": prompt
+                }
+            ]
+        }
+    ]
+
+    try:
+        response = await send_multimodal_chat_message(
+            messages=messages,
+            image_bytes=image_data,
+            model=model,
+            base_url=base_url
+        )
+        return {"response": response}
+    except Exception as e:
+        logger.error(f"Error in generate_from_image: {str(e)}")
+        return {"response": "Failed to analyze image"}
+
+
+async def send_multimodal_chat_message(
+    messages: List[Dict[str, Any]],
+    image_bytes: bytes = None,
+    model: str = "Qwen/Qwen2-VL-2B-Instruct-AWQ",
+    base_url: str = "http://localhost:8002/v1/chat/completions"
+) -> str:
+    """
+    Send a multi-modal chat message with optional image bytes to the API endpoint.
+    
+    Args:
+        messages: List of message dictionaries with 'role' and 'content'
+        image_bytes: Optional image data as bytes
+        model: The model identifier to use
+        base_url: Base URL of the API server
+    
+    Returns:
+        The response text from the model
+    """
+    endpoint = f"{base_url}"
+    
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    if image_bytes:
+        try:
+            base64_image = await encode_bytes_to_base64(image_bytes)
+            for msg in reversed(messages):
+                if msg["role"] == "user":
+                    msg["content"].append(
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            }
+                        }
+                    )
+                    break
+        except Exception as e:
+            logger.error(f"Error processing image: {str(e)}")
+            raise
+    
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": 0.0,
+        "top_p": 0.1,
+        "top_k": 1,
+        "seed": 42,
+        "stream": False
+    }
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(endpoint, headers=headers, json=payload) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return result["choices"][0]["message"]["content"]
+                else:
+                    error_text = await response.text()
+                    logger.error(f"API request failed with status {response.status}: {error_text}")
+                    raise aiohttp.ClientError(f"API request failed: {error_text}")
+                    
+    except Exception as e:
+        logger.error(f"Error making API request: {str(e)}")
+        raise

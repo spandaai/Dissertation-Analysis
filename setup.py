@@ -35,7 +35,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            "da-start = backend.src.main:main"  # Use the new run_server function
+            "da-start = dissertation_analysis.domain.api:main",
         ],
     },
 )

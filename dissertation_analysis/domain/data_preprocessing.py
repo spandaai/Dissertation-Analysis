@@ -1,3 +1,29 @@
+"""
+Text Chunking Utility Module
+
+A simple utility module that provides functions for chunking and word extraction 
+from text using LangChain's recursive splitter.
+
+Functions:
+1. chunk_text:
+  - Splits text into semantic chunks
+  - Uses LangChain's RecursiveCharacterTextSplitter
+  - Returns chunks with word counts
+  - Configurable chunk size
+
+2. get_first_n_words:
+  - Extracts first N words from text
+  - Simple space-based word splitting
+  - Returns concatenated string
+
+Dependencies:
+- langchain_text_splitters: For RecursiveCharacterTextSplitter
+
+Note: This is a utility module focused solely on text chunking and word 
+extraction operations. Used primarily for preprocessing text before analysis.
+"""
+
+
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 def chunk_text(text, chunk_size=1000):

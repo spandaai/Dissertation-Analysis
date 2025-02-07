@@ -1,18 +1,49 @@
+"""
+Kafka Queue Management Module
+
+This module handles Kafka queue operations for dissertation analysis requests with 
+concurrent user management. Primarily focused on Kafka producer/consumer setup and 
+message handling.
+
+Core Functionality:
+- Kafka message queue management (producer/consumer)
+- WebSocket connection handling for frontend communication
+- Concurrent user count management
+- Topic creation and management
+
+Configuration:
+- Uses environment variables for Kafka and database settings
+- Configurable max concurrent users (default: 3)
+- Default Kafka topic: 'dissertation_analysis_queue'
+
+Key Components:
+- Producer: Single Kafka producer instance for enqueueing requests
+- Consumer: Single consumer instance for processing queued messages
+- WebSocket: Manages frontend notification and reconnection
+- User tracking: Global counter with locks for concurrent access
+
+Dependencies:
+- aiokafka: For async Kafka operations 
+- kafka-python: For admin operations
+- asyncio: For concurrent operations
+
+Note: This is a utility module focused purely on Kafka queue management and 
+should be used in conjunction with the main dissertation analysis system.
+"""
+
 import os
 import asyncio
-from backend.src.types import QueryRequestThesisAndRubric
 import logging 
+import json
 
-from backend.src.logic import *
+from dissertation_analysis.common.types import QueryRequestThesisAndRubric, CancellationToken
+from dissertation_analysis.domain.analysis_algorithms import process_request
+
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer, TopicPartition, OffsetAndMetadata
 from kafka.admin import KafkaAdminClient, NewTopic
 from aiokafka.admin import NewTopic
-import json
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
 from aiokafka import AIOKafkaProducer
-from sqlalchemy.exc import OperationalError
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
