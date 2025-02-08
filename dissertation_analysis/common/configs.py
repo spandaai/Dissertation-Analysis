@@ -209,3 +209,10 @@ class SimulatedWebSocket:
         if self.real_websocket:
             logger.info("Closing real WebSocket connection.")
             await self.real_websocket.close()
+
+class CancellationToken:
+    def __init__(self):
+        self.is_cancelled = False
+
+    def cancel(self):
+        self.is_cancelled = True

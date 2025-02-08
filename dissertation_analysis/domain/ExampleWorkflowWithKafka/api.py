@@ -45,10 +45,11 @@ Configuration:
 The service runs on port 8006 and includes error handling and connection management.
 """
 
-from dissertation_analysis.common.types import QueryRequestThesisAndRubric, QueryRequestThesis,PostData,FeedbackData ,User, UserScore, Feedback
-from dissertation_analysis.domain.kafka_utils import *
-from dissertation_analysis.domain.nlp_utils import process_docx, process_pdf
-from dissertation_analysis.domain.business_logic import summarize_and_analyze_agent, process_initial_agents
+from dissertation_analysis.domain.ExampleWorkflowWithKafka.types import QueryRequestThesisAndRubric, QueryRequestThesis,PostData,FeedbackData ,User, UserScore, Feedback
+from dissertation_analysis.domain.ExampleWorkflowWithKafka.kafka_utils import *
+from dissertation_analysis.domain.FunctionalBlocks.DataPreprocessing.data_processing import process_docx, process_pdf
+from dissertation_analysis.domain.FunctionalBlocks.BusinessLogic.business_logic import summarize_and_analyze_agent, process_initial_agents
+
 
 from sqlalchemy.orm import Session
 import uvicorn
@@ -58,7 +59,7 @@ import logging
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
-from aiokafka import AIOKafkaProducer
+from aiokafka import AIOKafkaProducer # type: ignore
 import uuid
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
@@ -340,8 +341,8 @@ async def websocket_dissertation(websocket: WebSocket):
     WebSocket endpoint for dissertation analysis.
     Handles direct WebSocket calls.
     """
-    cancellation_token = CancellationToken()
-
+    analyzer = DissertationAnalyzer()
+    
     try:
         # Accept WebSocket connection
         await websocket.accept()
@@ -354,9 +355,11 @@ async def websocket_dissertation(websocket: WebSocket):
             request = QueryRequestThesisAndRubric(**data)
         except Exception as e:
             logger.error(f"Payload parsing error: {e}")
-            await websocket.send_json({"type": "error", "data": {"message": "Invalid payload structure"}})
+            await analyzer.safe_send(websocket, {
+                "type": "error", 
+                "data": {"message": "Invalid payload structure"}
+            })
             return
-
 
         # Check for specific metadata placeholders
         metadata_issues = []
@@ -369,7 +372,7 @@ async def websocket_dissertation(websocket: WebSocket):
 
         # If any metadata is problematic, send an error
         if metadata_issues:
-            await websocket.send_json({
+            await analyzer.safe_send(websocket, {
                 "type": "error", 
                 "data": {
                     "message": f"Due to an unexpected input format of the file, the system was unable to extract {', '.join(metadata_issues)} information. Please report this issue to the development team with details about the dissertation file. Provide the file and context to help us improve our analysis capabilities."
@@ -398,7 +401,7 @@ async def websocket_dissertation(websocket: WebSocket):
                 await send_to_kafka(data)
 
                 # Notify the frontend
-                await websocket.send_json({
+                await analyzer.safe_send(websocket, {
                     "type": "queue_status",
                     "data": {"message": "Your request has been queued. Please wait...", "session_id": session_id}
                 })
@@ -412,17 +415,30 @@ async def websocket_dissertation(websocket: WebSocket):
         # Increment active users for direct requests
         await increment_users()
 
-        # Process the request immediately
-        await process_request(websocket, request, cancellation_token)
+        # Process the request immediately using the analyzer
+        try:
+            await analyzer.process_dissertation(websocket, request)
+        except Exception as e:
+            logger.error(f"Error during dissertation analysis: {e}")
+            if not analyzer.is_connection_closed:
+                await analyzer.safe_send(websocket, {
+                    "type": "error",
+                    "data": {"message": f"Analysis error: {str(e)}"}
+                })
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected during processing.")
+        await analyzer.handle_disconnect()
     except Exception as e:
         logger.error(f"Error in WebSocket processing: {e}")
-        await websocket.send_json({"type": "error", "data": {"message": str(e)}})
+        if not analyzer.is_connection_closed:
+            await analyzer.safe_send(websocket, {
+                "type": "error", 
+                "data": {"message": str(e)}
+            })
     finally:
-        # Decrement users only if it was a direct request
-        if not cancellation_token.ws_closed:
+        # Handle cleanup
+        if not analyzer.is_connection_closed:
             await websocket.close()
         await decrement_users()
 

@@ -36,13 +36,13 @@ import asyncio
 import logging 
 import json
 
-from dissertation_analysis.common.types import QueryRequestThesisAndRubric, CancellationToken
-from dissertation_analysis.domain.analysis_algorithms import process_request
+from dissertation_analysis.domain.ExampleWorkflowWithKafka.types import QueryRequestThesisAndRubric
+from dissertation_analysis.domain.FunctionalBlocks.AnalysisAlgorithms.analysis_algorithms import DissertationAnalyzer
 
-from aiokafka import AIOKafkaProducer, AIOKafkaConsumer, TopicPartition, OffsetAndMetadata
-from kafka.admin import KafkaAdminClient, NewTopic
-from aiokafka.admin import NewTopic
-from aiokafka import AIOKafkaProducer
+from aiokafka import AIOKafkaProducer, AIOKafkaConsumer, TopicPartition, OffsetAndMetadata # type: ignore
+from kafka.admin import KafkaAdminClient, NewTopic # type: ignore
+from aiokafka.admin import NewTopic # type: ignore
+from aiokafka import AIOKafkaProducer # type: ignore
 
 
 # Configure logging
@@ -143,9 +143,28 @@ async def process_dequeued_request(data: dict, session_id: str):
         # Wait for the frontend to reconnect
         websocket = await wait_for_websocket_reconnect(session_id)
 
-        # Process the request via the reconnected WebSocket
+        # Create analyzer instance and process the request
+        analyzer = DissertationAnalyzer()
         request = QueryRequestThesisAndRubric(**data)
-        await process_request(websocket, request, CancellationToken())
+        
+        try:
+            await analyzer.process_dissertation(websocket, request)
+        except Exception as e:
+            logger.error(f"Error during dissertation analysis: {e}")
+            if not analyzer.is_connection_closed:
+                await analyzer.safe_send(websocket, {
+                    "type": "error",
+                    "data": {
+                        "message": f"Analysis error: {str(e)}"
+                    }
+                })
+            
+        # Handle WebSocket cleanup
+        if websocket:
+            try:
+                await analyzer.handle_disconnect()
+            except Exception as e:
+                logger.error(f"Error during WebSocket cleanup: {e}")
 
     except Exception as e:
         logger.error(f"Error processing dequeued request for session {session_id}: {e}")
@@ -250,3 +269,4 @@ async def create_kafka_topic():
     else:
         logger.info(f"Kafka topic '{KAFKA_TOPIC}' already exists.")
     admin_client.close()
+

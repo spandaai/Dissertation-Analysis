@@ -1,45 +1,12 @@
-"""
-LLM Integration Module for Image and Text Generation
-
-This module provides interfaces for interacting with VLLM and Ollama LLMs for both 
-text and image analysis tasks. Contains separate implementations for each platform's 
-API specifications.
-
-Components:
-1. VLLM Functions:
-  - Non-streaming text generation
-  - Streaming text generation with cancellation
-  - Custom parameter handling (temperature, top_p, top_k, seed)
-
-2. Ollama Functions:
-  - Non-streaming text generation
-  - Streaming text generation with cancellation
-  - Image analysis capabilities
-
-3. Helper Functions:
-  - Image processing (base64 encoding)
-  - Multimodal chat message handling
-  - Custom API format adaptations
-
-Configuration:
-- Uses environment variables for service URLs and model names
-- Supports both VLLM and Ollama endpoints
-- Configurable model parameters
-
-Note: This is a service integration module focusing on LLM API interactions.
-Each section (VLLM, Ollama, Helpers) is clearly demarcated with comments 
-for easy navigation.
-"""
-
 import json
 import os
 import httpx
 from typing import AsyncGenerator, List, Dict, Any
 import aiohttp
 import base64
-from dissertation_analysis.domain.data_preprocessing import encode_bytes_to_base64
 import logging
 from dotenv import load_dotenv
+from dissertation_analysis.common.configs import CancellationToken
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -57,14 +24,6 @@ ollama_model_for_image = os.getenv("OLLAMA_MODEL_FOR_IMAGE")
 # Access the environment variables
 ollama_url = os.getenv("OLLAMA_URL")
 vllm_url = os.getenv("VLLM_URL_FOR_ANALYSIS")
-
-
-class CancellationToken:
-    def __init__(self):
-        self.is_cancelled = False
-
-    def cancel(self):
-        self.is_cancelled = True
 
         
 ##############################################################################################################################
@@ -290,11 +249,6 @@ async def stream_llm_ollama(
 
 
 
-###############################################################################################################################################################
-#########################################HELPER FUNCTIONS######################################################################################################
-###############################################################################################################################################################
-###############################################################################################################################################################
-
 async def generate_from_image_ollama(image_data: bytes, prompt: str):
     try:
         # Encode the binary image data to Base64
@@ -438,4 +392,72 @@ async def send_multimodal_chat_message(
                     
     except Exception as e:
         logger.error(f"Error making API request: {str(e)}")
+        raise
+
+
+###############################################################################################################################################################
+###############################################################################################################################################################
+#########################################VLLM IMAGE AGENT###############################################################################################
+###############################################################################################################################################################
+
+async def analyze_image_vllm(
+    image_data: bytes,
+    model: str = vllm_model_for_image,
+    base_url: str = vllm_url_for_image
+) -> Dict[str, Any]:
+    """
+    Analyze image using predefined prompt
+    
+    Args:
+        image_data: Image bytes
+        model: Model identifier
+        base_url: API base URL
+    
+    Returns:
+        Dict containing the analysis response
+    """
+
+    image_agent_user_prompt = """
+    Analyze the following image and provide a report detailing the features present. 
+    Include a clear description of what is depicted in the image without any interpretation.
+    Please keep the summarization below 200 words. Describe the intent of the image, not the details of what is present.
+    The summarization needs to be brief and short.
+    """
+    
+    return await generate_from_image(
+        image_data=image_data,
+        prompt=image_agent_user_prompt,
+        model=model,
+        base_url=base_url
+    )
+
+###############################################################################################################################################################
+#########################################OLLAMA IMAGE AGENT####################################################################################################
+###############################################################################################################################################################
+###############################################################################################################################################################
+
+
+async def analyze_image_ollama(image_data: bytes):
+    image_agent_user_prompt = """
+    Analyze the following image and provide a report detailing the features present. 
+    Include a clear description of what is depicted in the image without any interpretation.
+    Please keep the summarization below 200 words. Describe the intent of the image, not the details of what is present.
+    The summarization needs to be brief and short.
+    """
+    return await generate_from_image_ollama(image_data, image_agent_user_prompt)
+
+async def encode_bytes_to_base64(image_bytes: bytes) -> str:
+    """
+    Encode image bytes to base64 string.
+    
+    Args:
+        image_bytes: Image data as bytes
+    
+    Returns:
+        Base64 encoded string of the image
+    """
+    try:
+        return base64.b64encode(image_bytes).decode('utf-8')
+    except Exception as e:
+        logger.error(f"Error encoding image: {str(e)}")
         raise
