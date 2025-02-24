@@ -3,7 +3,7 @@ import asyncio
 from backend.src.types import QueryRequestThesisAndRubric
 import logging 
 
-from backend.src.logic import *
+from backend.src.logic import CancellationToken, process_request
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer, TopicPartition, OffsetAndMetadata
 from kafka.admin import KafkaAdminClient, NewTopic
 from aiokafka.admin import NewTopic

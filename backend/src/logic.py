@@ -1,8 +1,5 @@
-from backend.src.utils import *
-from backend.Agents.text_agents import *
-from backend.Agents.vision_agents import *
+from backend.Agents.text_agents import scoring_agent
 from backend.src.types import QueryRequestThesisAndRubric
-from backend.src.logic import *
 from fastapi import WebSocket, WebSocketDisconnect
 import re
 

@@ -1,9 +1,9 @@
-from backend.src.utils import *
-from backend.Agents.text_agents import *
-from backend.Agents.vision_agents import *
+from backend.src.utils import process_pdf, process_docx
+from backend.Agents.text_agents import summarize_and_analyze_agent
+from backend.Agents.vision_agents import analyze_image
 from backend.src.types import QueryRequestThesisAndRubric, QueryRequestThesis,PostData,FeedbackData ,User, UserScore, Feedback
-from backend.src.logic import *
-from backend.src.kafka_utils import *
+from backend.src.logic import CancellationToken, process_request
+from backend.src.kafka_utils import increment_users, decrement_users, get_active_users, send_to_kafka, consume_messages, create_kafka_topic
 from sqlalchemy.orm import Session
 import uvicorn
 from fastapi import FastAPI, WebSocket, UploadFile, File, HTTPException ,Depends,  WebSocketDisconnect

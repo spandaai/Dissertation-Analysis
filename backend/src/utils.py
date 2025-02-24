@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
-from backend.Agents.text_agents import *
-from backend.Agents.vision_agents import *
+from backend.Agents.text_agents import extract_name_agent, extract_topic_agent, extract_degree_agent
+from backend.Agents.vision_agents import analyze_image
 import fitz
 from io import BytesIO
 from docx import Document
@@ -287,7 +287,6 @@ def clean_text(text: str) -> str:
     Returns:
         Cleaned text string
     """
-    import re
     text = re.sub(r'Page \d+ of \d+', '', text, flags=re.IGNORECASE)
     text = re.sub(r'Chapter\s+\d+', '', text, flags=re.IGNORECASE)
     text = re.sub(r'\b\d+\b(?!\s*[a-zA-Z])', '', text)

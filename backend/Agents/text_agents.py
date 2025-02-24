@@ -1,11 +1,11 @@
 import os
 from dotenv import load_dotenv
-from backend.src.utils import *
-from backend.InferenceEngine.inference_engines import *
+from backend.InferenceEngine.inference_engines import invoke_llm
 import logging
 import asyncio
 from typing import List
-from backend.Agents.agent_utils import *
+from backend.Agents.agent_utils import chunk_text, get_first_n_words
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,11 +21,6 @@ vllm_url_for_analysis = os.getenv("VLLM_URL_FOR_ANALYSIS")
 vllm_url_for_scoring = os.getenv("VLLM_URL_FOR_SCORING")
 vllm_url_for_extraction = os.getenv("VLLM_URL_FOR_EXTRACTION")
 
-from typing import List
-import asyncio
-import logging
-
-logger = logging.getLogger(__name__)
 
 async def process_chunks_in_batch(chunks: List[str], topic: str, system_prompt: str, batch_size: int = 5) -> List[str]:
     """
