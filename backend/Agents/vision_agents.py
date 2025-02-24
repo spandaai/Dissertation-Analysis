@@ -1,12 +1,9 @@
-import os
+import aiohttp
+import base64
 from dotenv import load_dotenv
-import aiohttp
-import base64
 import logging
-import aiohttp
-import base64
+import os
 from typing import List, Dict, Any
-import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

@@ -1,19 +1,24 @@
-from dotenv import load_dotenv
 from backend.Agents.text_agents import extract_name_agent, extract_topic_agent, extract_degree_agent
 from backend.Agents.vision_agents import analyze_image
-import fitz
-from io import BytesIO
+
+import asyncio
 from docx import Document
 from docx.parts.image import ImagePart
-from PIL import Image
-from typing import Dict, Tuple
-from typing import List
-import asyncio
+from dotenv import load_dotenv
 from fastapi import UploadFile
+import fitz
+from io import BytesIO
+import logging
+from PIL import Image
 import re
+from typing import Dict, Tuple, List
+
 
 # Load environment variables from .env file
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class WebSocketManager:
     def __init__(self, max_slots):

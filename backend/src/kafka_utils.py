@@ -1,18 +1,14 @@
-import os
-import asyncio
-from backend.src.types import QueryRequestThesisAndRubric
-import logging 
-
 from backend.src.logic import CancellationToken, process_request
-from aiokafka import AIOKafkaProducer, AIOKafkaConsumer, TopicPartition, OffsetAndMetadata
-from kafka.admin import KafkaAdminClient, NewTopic
-from aiokafka.admin import NewTopic
-import json
+from backend.src.types import QueryRequestThesisAndRubric
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from aiokafka import AIOKafkaProducer
-from sqlalchemy.exc import OperationalError
+from aiokafka import AIOKafkaProducer, AIOKafkaConsumer, TopicPartition, OffsetAndMetadata
+from aiokafka.admin import NewTopic
+import asyncio
+import json
+from kafka.admin import KafkaAdminClient, NewTopic
+import logging 
+import os
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
