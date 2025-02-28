@@ -58,6 +58,10 @@ class QueryRequestThesisAndRubric(BaseModel):
 class QueryRequestThesis(BaseModel):
     thesis: str
 
+class QueryScope(BaseModel):
+    feedback: dict
+    scope: str
+
 class UserData(BaseModel):
     name: str
     degree: str
