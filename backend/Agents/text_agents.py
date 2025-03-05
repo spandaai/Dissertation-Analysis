@@ -383,6 +383,7 @@ This text contains the scope of the dissertation:
 - Return two lists: one for in-scope and one for out-of-scope
 - Do not include any additional explanation or comments
 - Only extract and send the lists, nothing else.
+- Ensure that you return only 4 most important in-scope and out-scope points each
 
 ## Output Format
 Scope should be returned in two lists format.
