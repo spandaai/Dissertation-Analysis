@@ -313,3 +313,88 @@ spanda_score: <score (out of 5)>"""
     score_for_criteria = full_text_dict["answer"]
     
     return score_for_criteria 
+
+
+async def extract_scope_agent(dissertation):
+    
+    dissertation_first_pages = get_first_n_words(dissertation, -1)
+
+    extract_scope_system_prompt = """
+You are an academic expert tasked with identifying the scope of a dissertation. Your job is to clearly indicate the scope of the dissertation that the student is working on.
+"""
+
+    # Prompt to extract main topic
+    extract_scope_user_prompt = f"""
+# Scope Extraction
+## Input
+The text contains the first few pages of a dissertation:
+
+[CHUNK STARTS]
+{dissertation_first_pages}
+[CHUNK ENDS]
+
+## Instructions
+- Extract the complete scope of the dissertation
+- Return ONLY the scope
+- Do not include any additional explanation or comments
+- Only extract and send the scope, nothing else.
+
+## Output Format
+Scope should be returned in a list format. If there is no scope inferred, please return exactly the following:
+"no_scope_inferred"
+"""
+
+    # Generate the response using the utility function
+    full_text_dict = await invoke_llm(
+        system_prompt=extract_scope_system_prompt,
+        user_prompt=extract_scope_user_prompt,
+        model_type=ModelType.EXTRACTION
+    )
+
+    topic = full_text_dict["answer"]
+    
+    return topic 
+
+async def scoped_suggestions_agent(dissertation_scores, scope):
+
+    scoped_suggestions_system_prompt = """
+You are an academic expert tasked with classifying feedback on a dissertation with respect to it's scope. Your job is to clearly indicate whether the suggestions in the feedback are within the scope of the dissertation or outside of it.
+"""
+
+    scoped_feedback = dict()
+    for key in dissertation_scores['criteria_evaluations']:
+        # Prompt to extract main topic
+        scoped_suggestions_user_prompt = f"""
+# Scope Extraction
+## Input
+The text contains the feedback of the dissertation:
+
+[CHUNK STARTS]
+{dissertation_scores['criteria_evaluations'][key]}
+[CHUNK ENDS]
+
+This text contains the scope of the dissertation:
+[CHUNK STARTS]
+{scope}
+[CHUNK ENDS]
+
+## Instructions
+- Extract the suggestions from the feedback
+- Return two lists: one for in-scope and one for out-of-scope
+- Do not include any additional explanation or comments
+- Only extract and send the lists, nothing else.
+
+## Output Format
+Scope should be returned in two lists format.
+"""
+
+        # Generate the response using the utility function
+        full_text_dict = await invoke_llm(
+            system_prompt=scoped_suggestions_system_prompt,
+            user_prompt=scoped_suggestions_user_prompt,
+            model_type=ModelType.EXTRACTION
+        )
+
+        scoped_feedback[key] = full_text_dict["answer"]
+    
+    return scoped_feedback

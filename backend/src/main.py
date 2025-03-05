@@ -1,6 +1,6 @@
 from backend.src.utils import process_pdf, process_docx, process_initial_agents
-from backend.Agents.text_agents import summarize_and_analyze_agent
-from backend.src.types import QueryRequestThesisAndRubric, QueryRequestThesis,PostData,FeedbackData ,User, UserScore, Feedback
+from backend.Agents.text_agents import summarize_and_analyze_agent, extract_scope_agent, scoped_suggestions_agent
+from backend.src.types import QueryRequestThesisAndRubric, QueryRequestThesis,PostData,FeedbackData ,User, UserScore, Feedback, QueryScope
 from backend.src.logic import CancellationToken, process_request
 from backend.src.kafka_utils import increment_users, decrement_users, get_active_users, send_to_kafka, consume_messages, create_kafka_topic
 
@@ -285,6 +285,38 @@ async def pre_analysis(request: QueryRequestThesis):
         raise HTTPException(
             status_code=500,
             detail="Failed to pre-analyze thesis"
+        )
+
+
+@app.post("/api/scope_extraction")
+async def scope_extractor(dissertation_pre_analysis: QueryRequestThesis):
+    try:
+        # Extract scope of agent from pre analysis
+        scope = await extract_scope_agent(dissertation_pre_analysis.thesis)
+        
+        return scope
+        
+    except Exception as e:
+        logger.error(f"Failed to extract scope of thesis: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to extract scope of thesis"
+        )
+
+
+@app.post("/api/generate_scoped_feedback")
+async def scoped_feedback(request: QueryScope):
+    try:
+        # Extract scope of agent from pre analysis
+        scoped_feedback = await scoped_suggestions_agent(request.feedback, request.scope)
+        
+        return scoped_feedback
+        
+    except Exception as e:
+        logger.error(f"Failed to extract scoped feedback of thesis: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to extract scoped feedback of thesis"
         )
 
 
