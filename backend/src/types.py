@@ -1,10 +1,9 @@
-from typing import Dict, Optional ,List
-from pydantic import BaseModel
-from typing_extensions import TypedDict
 from pydantic import BaseModel
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
+from typing import Dict, Optional ,List
+from typing_extensions import TypedDict
 
 Base = declarative_base()
 

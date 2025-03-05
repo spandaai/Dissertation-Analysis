@@ -1,18 +1,21 @@
-from backend.src.utils import *
-from backend.Agents.text_agents import *
-from backend.Agents.vision_agents import *
+from backend.src.utils import process_pdf, process_docx, process_initial_agents
+from backend.Agents.text_agents import summarize_and_analyze_agent
 from backend.src.types import QueryRequestThesisAndRubric, QueryRequestThesis,PostData,FeedbackData ,User, UserScore, Feedback
-from backend.src.logic import *
-from backend.src.kafka_utils import *
-from sqlalchemy.orm import Session
-import uvicorn
+from backend.src.logic import CancellationToken, process_request
+from backend.src.kafka_utils import increment_users, decrement_users, get_active_users, send_to_kafka, consume_messages, create_kafka_topic
+
+from aiokafka import AIOKafkaProducer
+import asyncio
+from contextlib import asynccontextmanager
+from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, UploadFile, File, HTTPException ,Depends,  WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware 
 import logging
-from sqlalchemy.orm import Session
-from dotenv import load_dotenv
-from contextlib import asynccontextmanager
-from aiokafka import AIOKafkaProducer
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker, declarative_base
+from sqlalchemy.exc import OperationalError
+import uvicorn
 import uuid
 
 load_dotenv()

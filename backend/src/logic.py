@@ -1,10 +1,13 @@
-from backend.src.utils import *
-from backend.Agents.text_agents import *
-from backend.Agents.vision_agents import *
+from backend.Agents.text_agents import scoring_agent
+from backend.InferenceEngine.inference_engines import stream_llm, ModelType
 from backend.src.types import QueryRequestThesisAndRubric
-from backend.src.logic import *
+
 from fastapi import WebSocket, WebSocketDisconnect
+import logging
 import re
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class CancellationToken:
     def __init__(self):

@@ -1,19 +1,12 @@
-import os
+import aiohttp
+import base64
 from dotenv import load_dotenv
-import aiohttp
-import base64
 import logging
-import aiohttp
-import base64
+import os
 from typing import List, Dict, Any
-import logging
-
-from backend.InferenceEngine.inference_engines import *
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 
 # Create a logger instance
 logger = logging.getLogger(__name__)
