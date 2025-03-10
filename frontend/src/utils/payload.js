@@ -84,7 +84,7 @@ Score 5:
 -Description: Groundbreaking methodological innovation
 -Examples: Novel validation techniques, exceptional reproducibility, perfect implementation
 -Explanation: Sets new methodological standards`
-    },
+   },
     "Problem frame": {
       criteria_explanation: `Problem framing evaluates how the work addresses current technological or theoretical gaps. This criterion assesses:
 - Technical/theoretical gap identification

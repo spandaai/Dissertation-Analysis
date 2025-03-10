@@ -11,7 +11,6 @@ import { faUpload } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCircleNotch } from '@fortawesome/free-solid-svg-icons';
 
-
 import { faBrain, faChartLine, faStar, faLightbulb,faBolt,faAddressCard,faPhone,faTasks,faLock } from '@fortawesome/free-solid-svg-icons';
 import { useDropzone } from 'react-dropzone';
 import { CircularProgress, Typography, Box, IconButton, Button } from '@mui/material'; // Consolidated imports here
@@ -56,7 +55,11 @@ const Dissertation = () => {
   const [selectedRubric, setSelectedRubric] = useState(null);
   const [showRubric, setShowRubric] = useState(constantRubric); // Default state
   const [rubricpayload, setRubricpayload] = useState(rubricpayloadreceived.constantRubricpayload); // Default state
-  const apiUrl = window?.env?.REACT_APP_API_URL || url;
+  const [expandedCriterion, setExpandedCriterion] = useState(null);
+  const [currentCriterion, setCurrentCriterion] = useState(null);
+  const [scopeFeedback, setScopeFeedback] = useState(null);  // Stores final scope-related feedback
+
+  const apiUrl = "http://localhost:8006";
   console.log(apiUrl);
   //console.log(window.env.REACT_APP_API_URL);
   console.log(url);
@@ -130,101 +133,148 @@ const Dissertation = () => {
   const downloadPDF = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
-  
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    const bottomMargin = 20; // Space above page number
+
     const greyTextColor = [50, 50, 50];
     const goldenYellowColor = [255, 204, 0];
-  
+
+    let yPos = 20; // Track Y-Position for text placement
+
     // Title
     doc.setFontSize(24);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...greyTextColor);
-    doc.text("Dissertation Evaluation", 14, 20);
-  
+    doc.text("Dissertation Evaluation", margin, yPos);
+    yPos += 15;
+
     // Current Date
-    const currentDate = new Date().toLocaleDateString();
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
-    doc.text(`Date: ${currentDate}`, pageWidth - 20, 30, { align: 'right' });
-  
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, pageWidth - margin, yPos, { align: 'right' });
+    yPos += 10;
+
     // Horizontal Line
     doc.setDrawColor(200);
-    doc.line(10, 35, pageWidth - 10, 35);
-  
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 10;
+
     // Total Score
     doc.setFontSize(16);
     doc.setTextColor(0);
     const normalizedScore = response?.total_score && numberOfDimensions
-    ? (response.total_score / numberOfDimensions).toFixed(2)
-    : 'N/A';
-  
-  doc.text(`Total Score: ${normalizedScore}/5`, 14, 50);
-  
-    // Criteria Evaluations
+        ? (response.total_score / numberOfDimensions).toFixed(2)
+        : 'N/A';
+    doc.text(`Total Score: ${normalizedScore}/5`, margin, yPos);
+    yPos += 10;
+
+    // Criteria Evaluations Table
     if (response?.criteria_evaluations) {
-      const tableData = Object.keys(response.criteria_evaluations).map((criterion) => {
-        const evaluation = response.criteria_evaluations[criterion];
-  
-        // Process feedback using marked
-        const feedbackMarkdown = evaluation?.feedback || "No justification provided.";
-        const feedbackHtml = marked(feedbackMarkdown); // Convert markdown to HTML
-        const feedbackText = feedbackHtml.replace(/<[^>]+>/g, ''); // Remove HTML tags for PDF
-  
-        const score = evaluation?.score !== undefined ? evaluation.score : "No score available.";
-  
-        return [
-          criterion,
-          feedbackText, // Use cleaned feedback text
-          score
-        ];
-      });
-  
-      // Set a title for the table
-      doc.setFontSize(14);
-      doc.setTextColor(...greyTextColor);
-  
-      // Create the table with updated text formatting
-      doc.autoTable({
-        startY: 60,
-        head: [['Criterion', 'Feedback', 'Score']],
-        body: tableData,
-        theme: 'grid',
-        styles: { fontSize: 10, cellPadding: 5, halign: 'left' },
-        headStyles: { fillColor: [100, 100, 100], textColor: 255, fontStyle: 'bold' },
-        bodyStyles: { fillColor: [245, 245, 245], textColor: 50 },
-        alternateRowStyles: { fillColor: [255, 255, 255] },
-        columnStyles: {
-          0: { cellWidth: 40, halign: 'left' },
-          1: { cellWidth: 125, halign: 'left' }, // Align feedback to left
-          2: { cellWidth: 20, halign: 'center' }
-        }
-      });
+        const tableData = Object.keys(response.criteria_evaluations).map((criterion) => {
+            const evaluation = response.criteria_evaluations[criterion];
+            const feedbackText = marked.parse(evaluation?.feedback || "No justification provided.").replace(/<[^>]+>/g, '');
+            const score = evaluation?.score !== undefined ? evaluation.score : "No score available.";
+            return [criterion, feedbackText, score];
+        });
+
+        doc.autoTable({
+            startY: yPos,
+            head: [['Criterion', 'Feedback', 'Score']],
+            body: tableData,
+            theme: 'grid',
+            styles: { fontSize: 10, cellPadding: 5, halign: 'left' },
+            headStyles: { fillColor: [100, 100, 100], textColor: 255, fontStyle: 'bold' },
+            bodyStyles: { fillColor: [245, 245, 245], textColor: 50 },
+            alternateRowStyles: { fillColor: [255, 255, 255] },
+            columnStyles: {
+                0: { cellWidth: 40, halign: 'left' },
+                1: { cellWidth: 125, halign: 'left' },
+                2: { cellWidth: 20, halign: 'center' }
+            },
+            margin: { bottom: bottomMargin + 10 } // Add margin to prevent overlap with page numbers
+        });
+
+        yPos = doc.autoTable.previous.finalY + 10;
     }
-  
-    // Page footer with page numbers
+
+    // Scope Feedback Section
+    if (scopeFeedback) {
+        // Check if we need to start on a new page based on available space
+        if (yPos + 30 > pageHeight - (bottomMargin + 20)) { // Added extra space to avoid overlap
+            doc.addPage();
+            yPos = 20;
+        }
+
+        doc.setFontSize(14);
+        doc.setTextColor(0);
+        doc.text("Scope Feedback", margin, yPos);
+        yPos += 10;
+
+        Object.entries(scopeFeedback).forEach(([criteria, feedback]) => {
+            // Check if enough space is available for criteria header
+            if (yPos + 20 > pageHeight - (bottomMargin + 20)) {
+                doc.addPage();
+                yPos = 20;
+            }
+
+            doc.setFontSize(12);
+            doc.setTextColor(50);
+            doc.text(`${criteria}:`, margin, yPos);
+            yPos += 6;
+
+            // Process and split feedback text to fit page width
+            doc.setFontSize(10);
+            const feedbackText = marked.parse(feedback).replace(/<[^>]+>/g, '');
+            const splitFeedback = doc.splitTextToSize(feedbackText, pageWidth - margin * 2);
+            
+            // Check if feedback text will fit on current page
+            const textHeight = splitFeedback.length * 5;
+            
+            // If text won't fit on current page, move to next page
+            if (yPos + textHeight > pageHeight - (bottomMargin + 20)) {
+                doc.addPage();
+                yPos = 20;
+                // Re-write the criteria on the new page to maintain context
+                doc.setFontSize(12);
+                doc.setTextColor(50);
+                doc.text(`${criteria} (continued):`, margin, yPos);
+                yPos += 6;
+                doc.setFontSize(10);
+            }
+            
+            // Write the text and update position
+            doc.text(splitFeedback, margin, yPos);
+            yPos += textHeight + 10; // Add space after feedback paragraph
+        });
+    }
+
+    // Add page numbers and branding to all pages
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-  
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "normal");
-  
-      doc.setTextColor(...goldenYellowColor);
-      doc.text("[", pageWidth - 37, 10);
-      doc.text(".", pageWidth - 18, 10);
-      doc.text("]", pageWidth - 11, 10);
-  
-      doc.setTextColor(...greyTextColor);
-      doc.text("Spanda AI", pageWidth - 35, 10);
-  
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+        doc.setPage(i);
+        
+        // Add branding with yellow bracket
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...goldenYellowColor);
+        doc.text("[", pageWidth - 37, pageHeight - 10);
+        doc.text(".", pageWidth - 18, pageHeight - 10);
+        doc.text("]", pageWidth - 11, pageHeight - 10);
+
+        doc.setTextColor(...greyTextColor);
+        doc.text("Spanda AI", pageWidth - 35, pageHeight - 10);
+
+        // Add page numbers
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
     }
-  
+
     // Save the PDF
     doc.save("Dissertation_Evaluation.pdf");
-  };
+};
   
   
 
@@ -244,6 +294,12 @@ const Dissertation = () => {
   };
 
   useEffect(() => {
+    if (currentCriterion) {
+      setExpandedCriterion(currentCriterion); // ✅ Automatically expand the currently streaming criterion
+    }
+  }, [currentCriterion]);  
+
+  useEffect(() => {
     // Add event listener for clicks outside the sidebar
     document.addEventListener('mousedown', handleClickOutside);
     
@@ -258,6 +314,7 @@ const Dissertation = () => {
 
     connectToNotificationWebSocket();
   }, []);
+ 
   
   const handleTextSelection = () => {
     if (isEditable) {
@@ -429,6 +486,56 @@ const removeFile = (id) => {
     });
 };
 
+const fetchScopedFeedback = async (scope, feedback) => {
+  try {
+    console.log("Generating scoped feedback...");
+
+    const formattedScope = Array.isArray(scope) ? scope.join("\n") : scope;  // ✅ Convert array to string
+
+    const formattedFeedback = { criteria_evaluations: feedback };
+
+    const feedbackResponse = await fetch(`${apiUrl}/api/generate_scoped_feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        feedback: formattedFeedback,
+        scope: formattedScope,  // ✅ Now correctly formatted
+      }),
+    });
+
+    if (!feedbackResponse.ok) throw new Error("Failed to generate scoped feedback");
+
+    const scopedFeedback = await feedbackResponse.json();
+    console.log("Scoped feedback received:", scopedFeedback);
+
+    setScopeFeedback(scopedFeedback); // Save feedback to state
+
+  } catch (error) {
+    console.error("Error generating scoped feedback:", error);
+  }
+};
+
+const fetchScopeExtraction = async (preAnalyzedSummary, feedback) => {
+  try {
+    console.log("Extracting scope...");
+    const scopeResponse = await fetch(`${apiUrl}/api/scope_extraction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ thesis: preAnalyzedSummary }),
+    });
+
+    if (!scopeResponse.ok) throw new Error("Failed to extract scope");
+
+    const scope = await scopeResponse.json();
+    console.log("Scope extracted:", scope);
+
+    // Now fetch scoped feedback
+    fetchScopedFeedback(scope, feedback);
+  } catch (error) {
+    console.error("Error extracting scope:", error);
+  }
+};
+
 const postDataToBackend = async (postData) => {
  
   const apiHost = `${apiUrl}/api/postUserData`;  // Append the endpoint path
@@ -545,24 +652,32 @@ const handleWebSocketMessage = (response) => {
       }));
       break;
 
-    case "analysis_chunk":
-      setQueueStatus({ queue: false });
-      setResponse((prev) => {
-        const criterion = response.data.criterion;
-        const newFeedback =
-          prev.criteria_evaluations[criterion].feedback + response.data.chunk;
-        return {
-          ...prev,
-          criteria_evaluations: {
-            ...prev.criteria_evaluations,
-            [criterion]: {
-              ...prev.criteria_evaluations[criterion],
-              feedback: newFeedback,
-            },
-          },
-        };
-      });
-      break;
+      case "analysis_chunk":
+  setQueueStatus({ queue: false });
+
+  const currentEvaluatingCriterion = response.data.criterion;
+
+  setResponse((prev) => {
+    const newFeedback = prev.criteria_evaluations?.[currentEvaluatingCriterion]?.feedback + response.data.chunk;
+
+    return {
+      ...prev,
+      criteria_evaluations: {
+        ...prev.criteria_evaluations,
+        [currentEvaluatingCriterion]: {
+          ...prev.criteria_evaluations[currentEvaluatingCriterion],
+          feedback: newFeedback,
+        },
+      },
+    };
+  });
+
+  // ✅ Update the currently evaluating criterion
+  if (currentCriterion !== currentEvaluatingCriterion) {
+    setCurrentCriterion(currentEvaluatingCriterion);
+  }
+  break;
+      
 
     case "criterion_complete":
       setResponse((prev) => {
@@ -752,15 +867,24 @@ const  handleEvaluate = async () => {
           break;
 
           case "complete":
-            extractAndPostData({
-              ...response.data,
-              total_score: response.data.total_score,
-            });
-            setResponse((prev) => ({
-              ...prev,
-              evaluation_complete: true,
-            }));
-            break;
+  extractAndPostData({
+    ...response.data,
+    total_score: response.data.total_score,
+  });
+
+  setResponse((prev) => ({
+    ...prev,
+    evaluation_complete: true,
+  }));
+
+  // Ensure latest feedback is captured before calling scoped feedback
+  const latestFeedback = response.criteria_evaluations 
+  ? response.criteria_evaluations 
+  : response.data?.criteria_evaluations || {};
+
+  // Start Scope Extraction
+  fetchScopeExtraction(analysisData.pre_analyzed_summary, latestFeedback);
+  break;
 
         case "error":
           // Handle errors
@@ -1078,7 +1202,7 @@ const reconnectToProcessing = (sessionId) => {
     </p>
   ) : response ? (
     <>
-      {/* Display final response with total score */}
+      {/* Total Score Display */}
       <div className="total-score-box">
         <h3>
           Total Score: {response.total_score !== undefined && numberOfDimensions > 0
@@ -1086,35 +1210,63 @@ const reconnectToProcessing = (sessionId) => {
             : '-'}
         </h3>
       </div>
+
+      {/* Criteria List */}
       <div className="criteria-container">
-        {response.criteria_evaluations && Object.keys(response.criteria_evaluations).length > 0 ? (
-          Object.keys(response.criteria_evaluations).map((criterion, index) => {
-            const evaluation = response.criteria_evaluations[criterion];
-            return (
-              <div key={index} className="criteria-box">
-                <h3>{criterion}</h3>
-                <p style={{ color: '#eee' }}>
-                  <strong>Justification:</strong>{' '}
-                  <span 
-                    dangerouslySetInnerHTML={{
-                      __html: marked(evaluation?.feedback || 'No justification provided.'),
-                    }}
-                  />
-                </p>
-                <p style={{ color: '#eee' }}>
-                  <strong>Score:</strong>{' '}
-                  {evaluation?.score !== undefined ? `${evaluation.score}/5` : 'No score available.'}
-                </p>
-              </div>
-            );
-          })
-        ) : (
-          <p>No criteria evaluations available.</p>
-        )}
+  {response.criteria_evaluations && Object.keys(response.criteria_evaluations).length > 0 ? (
+    Object.keys(response.criteria_evaluations).map((criterion, index) => {
+      const evaluation = response.criteria_evaluations[criterion];
+
+      // ✅ Auto-expand the currently evaluating criterion
+      const isExpanded = expandedCriterion === criterion;
+
+      return (
+        <div key={index} className="criteria-box">
+          {/* ✅ Click event only on the header */}
+          <div 
+            className="criteria-header"
+            onClick={() => {
+              setExpandedCriterion(isExpanded ? null : criterion);
+            }}
+          >
+            <span className="criterion-name">{criterion}</span> {/* Name takes up remaining space */}
+            <span className="criterion-score">{evaluation?.score !== undefined ? `${evaluation.score}/5` : 'N/A'}</span>
+            <span className="expand-arrow">{isExpanded ? '▲' : '▼'}</span>
+          </div>
+      
+          {/* ✅ Prevent dropdown from closing when clicking inside feedback */}
+          {isExpanded && (
+            <div 
+              className="criteria-feedback"
+              onMouseDown={(e) => e.stopPropagation()} // Prevents unintended closing
+            >
+              <strong>Feedback:</strong>
+              <p dangerouslySetInnerHTML={{ __html: marked(evaluation?.feedback || "No feedback available.") }} />
+            </div>
+          )}
+        </div>
+      );      
+    })
+  ) : (
+    <p>No criteria evaluations available.</p>
+  )}
+</div>
+
+{scopeFeedback && (
+  <div className="scope-section p-4 bg-gray-800 rounded-lg">
+    <h3 className="text-2xl font-bold text-yellow-400 mb-4">Scope:</h3>
+    {Object.entries(scopeFeedback).map(([criteria, feedback]) => (
+      <div key={criteria} className="mb-6">
+        <h3 className="text-xl font-semibold text-white border-b border-gray-700 pb-2">{criteria}:</h3>
+        <div className="criteria-feedback">
+          <p dangerouslySetInnerHTML={{ __html: marked(feedback || "No scope feedback available.") }} />
+        </div>
       </div>
+    ))}
+  </div>
+)}
     </>
   ) : (
-    // Default state when no response is available
     <p className="default-message">To begin the evaluation, kindly submit your thesis file for review!</p>
   )}
 </div>
