@@ -32,6 +32,8 @@ setup(
         "pymysql",
         "mysql-connector-python",
         "cryptography",
+        "redis",
+        "xmltodict"
     ],
     entry_points={
         'console_scripts': [

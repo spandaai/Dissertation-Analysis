@@ -25,22 +25,59 @@ body {
   text-align: center;
 }
 
-/* Navbar styling */
 .nav {
+  display: flex;
+  height: 7vh;
   background: #373737;
   border-bottom: 1px solid #333;
   padding: 20px;
-  text-align: center;
-  overflow: hidden;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .nav-heading {
-  color: #F4BC1C;
+  color: white;
   font-size: 1.8rem;
-  font-weight: bold;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 20px;
+  color: white;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  justify-content: center;
+  top: 2.8rem; /* 40px -> rem */
+  left: 4rem; /* 50px -> rem */
+  margin-left: auto;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.logout-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  transform: translateY(-2px);
+}
+
+.logout-icon {
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+.logout-text {
+  letter-spacing: 0.5px;
+}
+
 
 /* Evaluator container styling */
 .evaluator-container {
@@ -73,7 +110,7 @@ body {
   display: flex; /* Make items align horizontally */
   gap: 10px; /* Space between cards */
   scrollbar-width: thin; /* Firefox scrollbar width */
-  scrollbar-color: #F4BC1C #33354a; /* Customize scrollbar color */
+  scrollbar-color: #F4BC1C #414244; /* Customize scrollbar color */
 }
 
 /* Rubric cards */
@@ -115,7 +152,7 @@ body {
 }
 
 .rubric-scroll-container::-webkit-scrollbar-track {
-  background: #33354a;
+  background: #47474d;
 }
 
 /* Response container styling */
@@ -348,12 +385,6 @@ button:hover {
 
 
 
-.nav-heading {
-  color: white;
-  font-size: 1.8rem;
-  text-align: center;
-  margin: 0;
-}
 
 /* Responsiveness */
 @media (max-width: 768px) {

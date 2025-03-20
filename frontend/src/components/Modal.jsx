@@ -1,6 +1,6 @@
 import React from 'react'
 import "../styles/Modal.css";
-import {url} from './url';
+import url from './url.js';
 const Modal = ({ show, onClose, selectedText, handleInputChange, feedback, loading, setLoading,setShowModal,preAnalysisData }) => {
   const apiUrl = window?.env?.REACT_APP_API_URL || url;
     const handleFeedback = async () => {
@@ -15,7 +15,7 @@ const Modal = ({ show, onClose, selectedText, handleInputChange, feedback, loadi
       try {
      
         
-        const response = await fetch(`${apiUrl}/api/submitFeedback`, {
+        const response = await fetch(`${apiUrl}/dissertation/api/submitFeedback`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

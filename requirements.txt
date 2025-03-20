@@ -26,3 +26,5 @@ pymysql
 aiokafka
 kafka-python
 psycopg2
+xmltodict
+redis

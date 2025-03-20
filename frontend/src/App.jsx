@@ -2,14 +2,44 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Dissertation from './components/Dissertation';
 import Dashboard from './components/Dashboard';
+import RubricManagementApp from './components/RubricPage';
+import ScoreManagement from './components/ScoreManagement';
+import HomePage from './components/Home';
+import ProtectedRoute from './components/utils/ProtectedRoute'; // Import the new component
 
 const App = () => {
   return (
     <div className="app-container">
       <Router>
         <Routes>
-          <Route path="/" element={<Dissertation />} />
-          <Route path="/Spanda_Dashboard" element={<Dashboard />} />
+          {/* Public route */}
+          <Route path="/" element={<HomePage />} />
+          
+          {/* Protected routes */}
+          <Route 
+            path="/HomePage" 
+            element={
+              <ProtectedRoute>
+                <Dissertation />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/RubricPage" 
+            element={
+              <ProtectedRoute>
+                <RubricManagementApp />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/ScoreManagement" 
+            element={
+              <ProtectedRoute>
+                <ScoreManagement />
+              </ProtectedRoute>
+            } 
+          />
         </Routes>
       </Router>
     </div>

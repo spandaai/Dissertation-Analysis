@@ -1,14 +1,28 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom'; // Import useNavigate
 import '../styles/Sidebar.css'; 
 import bitsLogo from '../styles/images/bitslogo.png'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHome, faBarChart} from '@fortawesome/free-solid-svg-icons';
+import { faHome, faBarChart, faClipboard} from '@fortawesome/free-solid-svg-icons';
 
 function Sidebar({ isActive, toggleSidebar, setSidebarActive }) {
-  console.log(isActive)
+  
   const sidebarRef = useRef(null);
   const navigate = useNavigate(); // Hook to programmatically navigate
+  const [userRole, setUserRole] = useState(null);
+
+  useEffect(() => {
+    // Get user role from cookies
+    const getCookieValue = (name) => {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+      return null;
+    };
+    
+    const role = getCookieValue('user_role');
+    setUserRole(role);
+  }, []);
 
   const handleClickOutside = (event) => {
     if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
@@ -46,15 +60,26 @@ function Sidebar({ isActive, toggleSidebar, setSidebarActive }) {
         <div>
             <ul className="sidebar-menu">
                 <li> 
-                    <Link to="/">
+                    <Link to="/HomePage">
                         <FontAwesomeIcon icon={faHome} className="card-icon-sidebar" /> Home
                     </Link>
                 </li>
-                <li>
-                    <Link to="/Spanda_Dashboard">
-                        <FontAwesomeIcon icon={faBarChart} className="card-icon-sidebar" /> Spanda Dashboard
-                    </Link>
-                </li>
+                  {(userRole === 'STAFF' || userRole === 'staff') && (
+                    <>
+                      <li>
+                        <Link to="/RubricPage">
+                          <FontAwesomeIcon icon={faClipboard} className="card-icon-sidebar" /> Rubric Management
+                        </Link>
+                      </li>
+
+                      <li>
+                        <Link to="/ScoreManagement">
+                          <FontAwesomeIcon icon={faBarChart} className="card-icon-sidebar" /> Score Management
+                        </Link>
+                      </li>
+                    </>
+                  )}
+
             </ul>
         </div>
     </div>

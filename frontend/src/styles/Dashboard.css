@@ -37,33 +37,3 @@
       padding: 0.8rem;
     }
   }
-  
-
-  .open-btn {
-    font-size: 26px;
-    cursor: pointer;
-    position: absolute;
-    top: 30px;
-    left: 40px;
-    background: #F4BC1C; 
-    color: #ffffff; 
-    border: 1px solid #F4BC1C; 
-    padding: 10px 15px;
-    border-radius: 8px; 
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); 
-    transition: 0.3s;
-    z-index: 10; 
-    height: 35px; /* Set height */
-    width: 30px; /* Set width */
-    display: flex; /* Center the icon vertically and horizontally */
-    align-items: center; /* Center icon vertically */
-    justify-content: center; /* Center icon horizontally */
-}
-
-
-.open-btn:hover {
-    background: #8a8a8a;
-    color: #2f3030;
-    border: none;
-    box-shadow: 0px 6px 8px rgba(0, 0, 0, 0.15); 
-}

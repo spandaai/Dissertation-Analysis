@@ -1,4 +1,3 @@
-const url = "http://localhost:8000";
+const url = "http://localhost:8008";
 
-
-export { url };
+export default url; 

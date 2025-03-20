@@ -18,15 +18,11 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { styled, width } from '@mui/system'; // Import styled from @mui/system
 import Sidebar from '../components/Sidebar';
 import { faFacebook, faTwitter, faLinkedin, faInstagram } from '@fortawesome/free-brands-svg-icons'; // Import social media icons
-import rubrics from "../utils/rubricData";
 
-import rubricpayloadreceived from "../utils/payload";
 import Modal from "./Modal";
 import { marked } from 'marked';
-import {url} from './url';
+import url from './url.js';
 const iconList = [faBrain, faChartLine, faStar, faLightbulb,faBolt];
-const { constantRubric, businessRubric } = rubrics;
-const { constantRubricpayload, businessRubricpayload } = rubricpayloadreceived;
 
 const Dissertation = () => {
   const [file, setFile] = useState(null);
@@ -51,41 +47,130 @@ const Dissertation = () => {
   const [queueStatus, setQueueStatus] = useState({ queue: false, position: 0 });
   const [fileUrls, setFileUrls] = useState({});
   const [streamingActive, setStreamingActive] = useState(false); 
-  const [isModalOpen, setModalOpen] = useState(false);
+  const [selectionSource, setSelectionSource] = useState(null);
+  const [rubricpayload, setRubricpayload] = useState(null); // Default state
+  const [rubrics, setRubrics] = useState([]);
   const [selectedRubric, setSelectedRubric] = useState(null);
-  const [showRubric, setShowRubric] = useState(constantRubric); // Default state
-  const [rubricpayload, setRubricpayload] = useState(rubricpayloadreceived.constantRubricpayload); // Default state
+  const [error, setError] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalContent, setModalContent] = useState(null);
+  const [transformedRubric, setTransformedRubric] = useState(null);
+
   const [expandedCriterion, setExpandedCriterion] = useState(null);
   const [currentCriterion, setCurrentCriterion] = useState(null);
   const [scopeFeedback, setScopeFeedback] = useState(null);  // Stores final scope-related feedback
 
-  const apiUrl = "http://localhost:8006";
-  console.log(apiUrl);
-  //console.log(window.env.REACT_APP_API_URL);
+  const apiUrl = url;
+  
   console.log(url);
-  const handleSelectChange = (event) => {
-    const selectedOption = event.target.value;
-    if (selectedOption === "option1") {
-      setShowRubric(rubrics.constantRubric);
-      setRubricpayload(rubricpayloadreceived.constantRubricpayload);
-    } else if (selectedOption === "option2") {
-      setShowRubric(rubrics.businessRubric);
-      setRubricpayload(rubricpayloadreceived.businessRubricpayload);
+  const fetchSamlData = async () => {
+    try {
+      const response = await axios.get(`${apiUrl}/dissertation/api/get-saml-data`, {
+        withCredentials: true, // Important for session-based auth
+      });
+  
+      console.log("User Data:", response.data);
+    } catch (error) {
+      console.error("Error fetching SAML data:", error);
     }
-
+  };
+  
+  // ✅ Automatically fetch SAML data when the page loads after SSO redirection
+  window.onload = () => {
+    fetchSamlData();
+  };
+  const transformRubric = (rubric) => {
+    const transformedData = {};
+  
+    rubric.dimensions.forEach((dimension) => {
+      transformedData[dimension.name] = {
+        criteria_explanation: dimension.criteria_explanation,
+        criteria_output: Object.entries(dimension.criteria_output)
+          .map(([key, value], index) => `${index + 1}. ${value}`)
+          .join("\n"),
+        score_explanation: Object.entries(dimension.score_explanation)
+          .map(
+            ([score, details]) =>
+              `${score}: ${details.Description}.\n   ${details.Examples}\n   ${details.Explanation}`
+          )
+          .join("\n\n"),
+      };
+    });
+  
+    return transformedData;
   };
 
+
+
+  
+  useEffect(() => {
+    const fetchRubrics = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${url}/dissertation/api/rubrics`, {
+          credentials: "include",  // ✅ Ensure cookies are sent
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setRubrics(data);
+        setLoading(false);
+      } catch (err) {
+        setError(err.message);
+        setLoading(false);
+        console.error('Error fetching rubrics:', err);
+      }
+    };
+
+    fetchRubrics();
+  }, []);
+
+  // Fetch specific rubric when selected
+  const handleSelectChange = async (e) => {
+    const rubricId = e.target.value;
+    
+    if (rubricId === "") {
+      setSelectedRubric(null);
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${url}/dissertation/api/rubrics/${rubricId}`, {
+        credentials: "include",  // ✅ Ensure cookies are sent
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      const rubricData = await response.json();
+      setSelectedRubric(rubricData);
+      setTransformedRubric(transformRubric(rubricData));
+      console.log('Selected rubric data:', rubricData);
+      
+      // You can add a callback here or use context/redux to make this data available to other components
+      // onRubricSelect(rubricData);
+      
+    } catch (err) {
+      console.error('Error fetching selected rubric:', err);
+      setError(err.message);
+    }
+  };
   
   
   const countDimensions = (rubric) => {
-    // Check if rubric is a valid object
-    if (typeof rubric === "object" && rubric !== null) {
-      return Object.keys(rubric).length;
+    if (rubric && typeof rubric === "object" && rubric.dimensions) {
+      return Object.values(rubric.dimensions).length;
     }
-    return 0; // Return 0 if rubric is not valid
+    return 0;
   };
   
-  const numberOfDimensions = countDimensions(showRubric);
+  
+  const numberOfDimensions = countDimensions(selectedRubric);
+
   useEffect(() => {
     const newFileUrls = {};
     files.forEach(file => {
@@ -321,17 +406,25 @@ const Dissertation = () => {
       const selection = window.getSelection();
       const selectedText = selection.toString();
       const anchorNode = selection.anchorNode;
-  
+      
+      // Check if selection is in criteria box or scope feedback section
       const isInCriteriaBox = anchorNode && (anchorNode.nodeType === 3
         ? anchorNode.parentNode.closest('.criteria-box')
         : anchorNode.closest('.criteria-box'));
-  
-      if (isInCriteriaBox && selectedText) {
+        
+      const isInScopeFeedback = anchorNode && (anchorNode.nodeType === 3
+        ? anchorNode.parentNode.closest('.scope-section')
+        : anchorNode.closest('.scope-section'));
+      
+      // Set selected text if it's in either section
+      if ((isInCriteriaBox || isInScopeFeedback) && selectedText) {
         setSelectedText(selectedText);
+        
+        // You might want to track which section the selection is from
+        setSelectionSource(isInCriteriaBox ? 'criteria' : 'scope');
       }
     }
   };
-  
 
   const handleInputChange = (e) => {
     setFeedback(e.target.value);
@@ -344,16 +437,15 @@ const Dissertation = () => {
   };
 
 
-  const openrubricModal = (section, content) => {
-    setSelectedRubric({ section, content });
-    setModalOpen(true);
+  const openRubricModal = (dimension) => {
+    setModalContent(dimension);
+    setIsModalOpen(true);
   };
 
-  const closerubricModal = () => {
-    setModalOpen(false);
-    setSelectedRubric(null);
+  const closeRubricModal = () => {
+    setIsModalOpen(false);
+    setModalContent(null);
   };
-
 
 
 
@@ -398,7 +490,7 @@ const extractTextAndImages = async (file) => {
   const formData = new FormData();
   formData.append("file", file);
 
-  const apiHost = `${apiUrl}/api/extract_text_from_file_and_analyze_images`;  
+  const apiHost = `${apiUrl}/dissertation/api/extract_text_from_file_and_analyze_images`;  
 
   try {
     const response = await fetch(apiHost, { 
@@ -424,7 +516,7 @@ const preAnalyzeText = async (extractedData) => {
   setIsPreanalyzing(true);
   const thesisText = extractedData?.text_and_image_analysis || "";
 
-  const apiHost = `${apiUrl}/api/pre_analyze`; // Append the endpoint path
+  const apiHost = `${apiUrl}/dissertation/api/pre_analyze`; // Append the endpoint path
 
   try {
     const response = await fetch(apiHost, {
@@ -494,7 +586,7 @@ const fetchScopedFeedback = async (scope, feedback) => {
 
     const formattedFeedback = { criteria_evaluations: feedback };
 
-    const feedbackResponse = await fetch(`${apiUrl}/api/generate_scoped_feedback`, {
+    const feedbackResponse = await fetch(`${apiUrl}/dissertation/api/generate_scoped_feedback`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -518,7 +610,7 @@ const fetchScopedFeedback = async (scope, feedback) => {
 const fetchScopeExtraction = async (preAnalyzedSummary, feedback) => {
   try {
     console.log("Extracting scope...");
-    const scopeResponse = await fetch(`${apiUrl}/api/scope_extraction`, {
+    const scopeResponse = await fetch(`${apiUrl}/dissertation/api/scope_extraction`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ thesis: preAnalyzedSummary }),
@@ -537,11 +629,12 @@ const fetchScopeExtraction = async (preAnalyzedSummary, feedback) => {
 };
 
 const postDataToBackend = async (postData) => {
- 
-  const apiHost = `${apiUrl}/api/postUserData`;  // Append the endpoint path
+  const apiHost = `${apiUrl}/dissertation/api/postUserData`;  // Append the endpoint path
 
   try {
-    const response = await axios.post(apiHost, postData);  // Use the dynamic URL
+    const response = await axios.post(apiHost, postData, {
+      withCredentials: true  // This enables sending cookies with cross-origin requests
+    });
     console.log('Data posted successfully', response.data);
   } catch (error) {
     console.error('There was an error posting the data!', error);
@@ -559,13 +652,17 @@ const extractAndPostData = (result) => {
     name: result.name,
     degree: result.degree,
     topic: result.topic,
-    total_score: result.total_score / numberOfDimensions
+    total_score: result.total_score
   };
+  console.log("result",result)
+  console.log("result",result.criteria_evaluations)
 
   const userScores = Object.entries(result.criteria_evaluations).map(([dimensionName, evaluation]) => ({
     dimension_name: dimensionName,
-    score: evaluation.score
+    score: evaluation.score,
+    data:evaluation.feedback
   }));
+  console.log("userScores",userScores)
 
   const postData = {
     userData,    
@@ -579,7 +676,7 @@ const extractAndPostData = (result) => {
 
 
 const connectToNotificationWebSocket = () => {
-    const notificationUrl = `${apiUrl.replace("http", "ws")}/api/ws/notifications`;
+    const notificationUrl = `${apiUrl.replace("http", "ws")}/dissertation/api/ws/notifications`;
     const notificationWebSocket = new WebSocket(notificationUrl);
   
     notificationWebSocket.onopen = () => {
@@ -636,7 +733,7 @@ const handleWebSocketMessage = (response) => {
 
     case "criterion_start":
       const criterion = response.data.criterion;
-      const rubricEntry = showRubric[criterion];
+      const rubricEntry = selectedRubric[criterion];
       setResponse((prev) => ({
         ...prev,
         criteria_evaluations: {
@@ -727,6 +824,9 @@ const handleWebSocketMessage = (response) => {
 
 
 const  handleEvaluate = async () => {
+  if (selectedRubric == null) {
+    alert("Please select a rubric first");
+}
   setResponse("");
   if (!file) {
     alert("No file selected. Please upload a file first.");
@@ -735,8 +835,8 @@ const  handleEvaluate = async () => {
   setResponseloading(true);
   setAnalyzing(true);
 
-  const websocketUrl = `${apiUrl.replace("http", "ws")}/api/ws/dissertation_analysis`; // Convert to WebSocket URL
-  const reconnectUrlBase = `${apiUrl.replace("http", "ws")}/api/ws/dissertation_analysis_reconnect?session_id=`;
+  const websocketUrl = `${apiUrl.replace("http", "ws")}/dissertation/api/ws/dissertation_analysis`; // Convert to WebSocket URL
+  const reconnectUrlBase = `${apiUrl.replace("http", "ws")}/dissertation/api/ws/dissertation_analysis_reconnect?session_id=`;
 
   try {
     console.log("Starting extraction...");
@@ -766,7 +866,7 @@ const  handleEvaluate = async () => {
       websocket.send(
         JSON.stringify({
           pre_analysis: analysisData,
-          rubric: rubricpayload,
+          rubric: transformedRubric,
           feedback: "Please provide constructive feedback based on evaluation.",
         })
       );
@@ -803,7 +903,7 @@ const  handleEvaluate = async () => {
         case "criterion_start":
           // Criterion evaluation has started
           const criterion = response.data.criterion;
-          const rubricEntry = showRubric[criterion];
+          const rubricEntry = selectedRubric[criterion];
           setResponse((prev) => ({
             ...prev,
             criteria_evaluations: {
@@ -891,7 +991,8 @@ const  handleEvaluate = async () => {
           alert(`Error: ${response.data.message}`);
           setAnalyzing(false);
           setQueueStatus({ queue: false });
-        
+          setResponseloading(false);
+
           break;
 
         default:
@@ -938,7 +1039,7 @@ const reconnectToProcessing = (sessionId) => {
     }
   
     console.log(`Reconnecting for session: ${sessionId}`);
-    const reconnectUrl = `${apiUrl.replace("http", "ws")}/api/ws/dissertation_analysis_reconnect?session_id=${sessionId}`;
+    const reconnectUrl = `${apiUrl.replace("http", "ws")}/dissertation/api/ws/dissertation_analysis_reconnect?session_id=${sessionId}`;
     const websocket = new WebSocket(reconnectUrl);
   
     websocket.onopen = () => {
@@ -964,13 +1065,28 @@ const reconnectToProcessing = (sessionId) => {
     };
   };
   
-
+  const handleLogout = async () => {
+    try {
+      const response = await axios.get(`${apiUrl}/dissertation/api/logout`, { withCredentials: true });
+      
+      // Check for success response and handle redirect
+      if (response.data && response.data.success) {
+        window.location.href = response.data.redirect_url;
+      }
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
   return (
     <div className="main-container">
-   <div className="nav">
+<div className="nav">
    <button id="open-btn" className="open-btn" onClick={toggleSidebar}>☰</button>
-      <h1 className="nav-heading">Dissertation Analysis</h1>
-    </div>
+   <h1 className="nav-heading">Dissertation Analysis</h1>
+   <button id="logout-btn" className="logout-btn"  onClick={handleLogout}>
+     <span className="logout-icon">⏻</span>
+     <span className="logout-text">Logout</span>
+   </button>
+</div>
     <div className="evaluator-container">
     <Sidebar isActive={isSidebarActive} toggleSidebar={toggleSidebar} setSidebarActive={setIsSidebarActive}/>
       
@@ -981,28 +1097,32 @@ const reconnectToProcessing = (sessionId) => {
     padding: "5px",
     borderRadius: "4px",
     marginLeft: "20px",
-    width: "150px", // Wider dropdown
-    background: "linear-gradient(to bottom, #e0e0e0, #c0c0c0)", // Grey gradient
-    fontWeight: "bold", // Bold text
-    border: "1px solid #a0a0a0", // Optional subtle border
-    color: "#000", // Black text
+    width: "250px",
+    background: "linear-gradient(to bottom, #e0e0e0, #c0c0c0)",
+    fontWeight: "bold",
+    border: "1px solid #a0a0a0",
+    color: "#000",
   }}
   onChange={handleSelectChange}
-  defaultValue="option1"
+  defaultValue=""
 >
-  <option value="option1">Generic</option>
-  <option value="option2">M.B.A</option>
+<option value="">Select a Rubric</option>
+          {rubrics.map((rubric) => (
+            <option key={rubric.id} value={rubric.id}>
+              {rubric.name}
+            </option>
+          ))}
 </select>
 
 
   <h2 style={{ flexGrow: 1, textAlign: "center", margin: 0 }}>AI Grading Rubric</h2>
 </div>
 
-
+{selectedRubric && selectedRubric.dimensions && (
     <div className="rubric-scroll-container">
         <div className="rubric-cards">
-            {Object.entries(showRubric).map(([section, content], index) => {
-                const handleClick = () => openrubricModal(section, content);
+        {selectedRubric.dimensions.map((dimension, index) => {
+                const handleClick = () => openRubricModal(dimension);
 
                 return (
                     <div 
@@ -1014,10 +1134,10 @@ const reconnectToProcessing = (sessionId) => {
                             icon={iconList[index % iconList.length]} 
                             className="card-icon" 
                         />
-                        <h3>{section}</h3>
-                        <p>
-                            {typeof content.criteria_explanation === 'string'
-                                ? content.criteria_explanation.slice(0, 150)
+                    <h3>{dimension.name}</h3>
+                    <p>
+                    {typeof dimension.criteria_explanation === 'string'
+                        ? dimension.criteria_explanation.slice(0, 150)
                                 : "Description not available"}...
                         </p>
                     </div>
@@ -1025,42 +1145,45 @@ const reconnectToProcessing = (sessionId) => {
             })}
         </div>
     </div>
+      )}
 
-    {isModalOpen && (
-    <div className="modal_rubric-overlay" onClick={closerubricModal}>
-        <div className="modal_rubric-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal_rubric-close-btn" onClick={closerubricModal}>
-                &times;
+{isModalOpen && modalContent && (
+        <div className="modal_rubric-overlay" onClick={closeRubricModal}>
+          <div className="modal_rubric-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal_rubric-close-btn" onClick={closeRubricModal}>
+              &times;
             </button>
-            <h2 classname="heading2">{selectedRubric.section}</h2>
+            <h2 className="heading2">{modalContent.name}</h2>
             
             <h3 className="heading3">Criteria Explanation</h3>
-            <p style={{backgroundColor:'#eee' ,padding:'15px', borderRadius:'10px', color:'#000'}}>{selectedRubric.content.criteria_explanation}</p>
+            <p style={{backgroundColor:'#eee', padding:'15px', borderRadius:'10px', color:'#000'}}>
+              {modalContent.criteria_explanation}
+            </p>
 
             <h3 className="heading3">Criteria Output</h3>
-            <p style={{backgroundColor:'#eee' ,padding:'15px', borderRadius:'10px', color:'#000'}}>
-                {Object.entries(selectedRubric.content.criteria_output)
-                    .map(([key, value]) => (
-                        <span key={key}>
-                            <strong>{key}:</strong> {value}<br />
-                        </span>
-                    ))}
-            </p>
+            <div style={{backgroundColor:'#eee', padding:'15px', borderRadius:'10px', color:'#000'}}>
+              {Object.entries(modalContent.criteria_output || {})
+                .map(([key, value]) => (
+                  <div key={key}>
+                    <strong>{key}:</strong> {value}
+                  </div>
+                ))}
+            </div>
 
             <h3 className="heading3">Score Explanation</h3>
-            <p style={{backgroundColor:'#eee',padding:'15px', borderRadius:'10px', color:'#000'}}>
-                {Object.entries(selectedRubric.content.score_explanation)
-                    .map(([score, details]) => (
-                        <span key={score}>
-                            <strong>{score}:</strong> {details.Description} <br />
-                            <em>Examples:</em> {details.Examples} <br />
-                            <em>Explanation:</em> {details.Explanation}<br />
-                        </span>
-                    ))}
-            </p>
+            <div style={{backgroundColor:'#eee', padding:'15px', borderRadius:'10px', color:'#000'}}>
+              {Object.entries(modalContent.score_explanation || {})
+                .map(([score, details]) => (
+                  <div key={score} style={{marginBottom: '15px'}}>
+                    <strong>{score}:</strong> {details.Description} <br />
+                    <em>Examples:</em> {details.Examples} <br />
+                    <em>Explanation:</em> {details.Explanation}
+                  </div>
+                ))}
+            </div>
+          </div>
         </div>
-    </div>
-)}
+      )}
 
 </div>
 
@@ -1258,7 +1381,12 @@ const reconnectToProcessing = (sessionId) => {
     {Object.entries(scopeFeedback).map(([criteria, feedback]) => (
       <div key={criteria} className="mb-6">
         <h3 className="text-xl font-semibold text-white border-b border-gray-700 pb-2">{criteria}:</h3>
-        <div className="criteria-feedback">
+        <div 
+          className="criteria-feedback"
+          contentEditable={analyzing}
+          suppressContentEditableWarning={true}
+          onMouseUp={handleTextSelection}
+        >
           <p dangerouslySetInnerHTML={{ __html: marked(feedback || "No scope feedback available.") }} />
         </div>
       </div>

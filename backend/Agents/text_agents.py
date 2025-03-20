@@ -358,17 +358,26 @@ Scope should be returned in a list format. If there is no scope inferred, please
 async def scoped_suggestions_agent(dissertation_scores, scope):
 
     scoped_suggestions_system_prompt = """
-You are an academic expert tasked with classifying feedback on a dissertation with respect to it's scope. Your job is to clearly indicate whether the suggestions in the feedback are within the scope of the dissertation or outside of it.
+You are a highly precise academic dissertation advisor. Your task is to extract only the most specific and actionable suggestions from dissertation feedback. Focus exclusively on concrete, implementable changes rather than general advice.
+
+Respond only with the numbered list of 3-4 specific action items as requested. Do not provide explanations, analysis, or any additional text beyond the requested list.
+
+Only include suggestions that:
+1. Are explicitly mentioned in the feedback
+2. Can be directly implemented without further clarification
+3. Target specific sections or elements of the dissertation
+4. Are within the stated scope of the work
+
+Maintain academic rigor and specificity in your extracted suggestions.
 """
 
     scoped_feedback = dict()
     for key in dissertation_scores['criteria_evaluations']:
         # Prompt to extract main topic
         scoped_suggestions_user_prompt = f"""
-# Scope Extraction
+# Key Suggestion Extraction
 ## Input
-The text contains the feedback of the dissertation:
-
+The text contains feedback on the dissertation:
 [CHUNK STARTS]
 {dissertation_scores['criteria_evaluations'][key]}
 [CHUNK ENDS]
@@ -379,13 +388,17 @@ This text contains the scope of the dissertation:
 [CHUNK ENDS]
 
 ## Instructions
-- Extract the suggestions from the feedback
-- Return two lists: one for in-scope and one for out-of-scope
-- Do not include any additional explanation or comments
-- Only extract and send the lists, nothing else.
+- Extract exactly 3-4 important suggestions that ALREADY EXIST in the feedback text
+- DO NOT create new suggestions or modify the existing ones
+- Selection criteria:
+  1. Choose meaningful suggestions that address substantive issues
+  2. Prioritize suggestions that are within the dissertation's scope
+  3. Select suggestions that would have the highest impact on improving the work
+  4. Avoid overly prescriptive instructions (like "add a section here")
+- The original feedback contains many points - your task is to identify only the 3-4 most important ones
 
 ## Output Format
-Scope should be returned in two lists format.
+Return only a numbered list of 3-4 key suggestions extracted from the original feedback.
 """
 
         # Generate the response using the utility function

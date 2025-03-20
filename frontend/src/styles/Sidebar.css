@@ -96,33 +96,33 @@
 }
 
 .open-btn {
-    font-size: 26px;
+    font-size: 1.625rem; /* 26px -> rem */
     cursor: pointer;
-    position: absolute;
-    top: 30px;
-    left: 40px;
     background: #F4BC1C; 
     color: #ffffff; 
-    border: 1px solid #F4BC1C; 
-    padding: 10px 15px;
-    border-radius: 8px; 
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); 
+    border: 0.0625rem solid #F4BC1C; /* 1px -> rem */
+    left: 4rem; 
+    padding: 0.625rem 0.9375rem; /* 10px 15px -> rem */
+    border-radius: 0.5rem; /* 8px -> rem */
+    box-shadow: 0rem 0.25rem 0.375rem rgba(0, 0, 0, 0.1); /* 0px 4px 6px -> rem */
     transition: 0.3s;
     z-index: 10; 
-    height: 35px; /* Set height */
-    width: 30px; /* Set width */
-    display: flex; /* Center the icon vertically and horizontally */
-    align-items: center; /* Center icon vertically */
-    justify-content: center; /* Center icon horizontally */
-}
-
-
-.open-btn:hover {
+    height: 2.1875rem; /* 35px -> rem */
+    width: 1.875rem; /* 30px -> rem */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+   
+    align-self: center;
+  }
+  
+  .open-btn:hover {
     background: #8a8a8a;
     color: #2f3030;
     border: none;
-    box-shadow: 0px 6px 8px rgba(0, 0, 0, 0.15); 
-}
+    box-shadow: 0rem 0.375rem 0.5rem rgba(0, 0, 0, 0.15); /* 0px 6px 8px -> rem */
+  }
+
 
 
 .logout-button {

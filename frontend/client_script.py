@@ -4,7 +4,7 @@ import asyncio
 import json
 # Define the file path
 pdf_file_path = "/home/ctspl/Downloads/2022MT12008.pdf"
-server_url = "http://localhost:8006"
+server_url = "http://localhost:8008"
 # Define the rubric once
 rubric = {
     "criterion1": {
@@ -15,7 +15,7 @@ rubric = {
     # Add additional criteria as needed
 }
 async def analyze_dissertation(pre_analysis_data, analyzed_thesis):
-    async with websockets.connect(f"ws://localhost:8006/ws/dissertation_analysis") as websocket:
+    async with websockets.connect(f"ws://localhost:8008/ws/dissertation_analysis") as websocket:
         # Send pre-analysis data, rubric, and analyzed_thesis
         await websocket.send(json.dumps({
             "pre_analysis": pre_analysis_data,

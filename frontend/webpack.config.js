@@ -14,7 +14,7 @@ module.exports = {
  mode: 'development',  // Can be changed to 'production' for production builds
  devServer: {
    static: path.join(__dirname, 'dist'),  // Serve files from 'dist' folder
-   port: 4000,  // Dev server port
+   port: 4002,  // Dev server port
    open: true,  // Open browser automatically
    historyApiFallback: true,  // For React Router
  },

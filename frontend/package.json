@@ -22,7 +22,7 @@
     "@mui/material": "^6.1.6",
     "@mui/system": "^6.1.5",
     "@react-pdf/renderer": "^4.0.0",
-    "apexcharts": "^3.54.0",
+    "apexcharts": "^4.5.0",
     "axios": "^1.7.7",
     "css-loader": "^7.1.2",
     "docx": "^9.0.0",

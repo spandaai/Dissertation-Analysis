@@ -1,14 +1,18 @@
 from backend.src.utils import process_pdf, process_docx, process_initial_agents
 from backend.Agents.text_agents import summarize_and_analyze_agent, extract_scope_agent, scoped_suggestions_agent
-from backend.src.types import QueryRequestThesisAndRubric, QueryRequestThesis,PostData,FeedbackData ,User, UserScore, Feedback, QueryScope
+from backend.src.types import *
 from backend.src.logic import CancellationToken, process_request
 from backend.src.kafka_utils import increment_users, decrement_users, get_active_users, send_to_kafka, consume_messages, create_kafka_topic
-
+import base64
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import HTMLResponse, RedirectResponse
+import json
 from aiokafka import AIOKafkaProducer
 import asyncio
 from contextlib import asynccontextmanager
+from backend.src.saml_utils import *
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, UploadFile, File, HTTPException ,Depends,  WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, UploadFile, File, HTTPException ,Depends,  WebSocketDisconnect,status
 from fastapi.middleware.cors import CORSMiddleware 
 import logging
 import os
@@ -17,8 +21,18 @@ from sqlalchemy.orm import Session, sessionmaker, declarative_base
 from sqlalchemy.exc import OperationalError
 import uvicorn
 import uuid
+import httpx
+from fastapi.responses import JSONResponse
+from sqlalchemy import Column, Integer, String, JSON, ForeignKey
+from sqlalchemy.orm import Session, relationship
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel
+from urllib.parse import unquote
 
+import redis 
+import xml.etree.ElementTree as ET
 load_dotenv()
+AUTH_TOKEN = os.getenv("AUTH_TOKEN")
 
 #Get the database URL from environment variables
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
@@ -135,12 +149,12 @@ app.add_middleware(
 )
 
 
-@app.get("/api/")
+@app.get("/dissertation/api/")
 def read_root():
     return {"message": "Hello! This is the Dissertation Analysis! Dissertation Analysis app is running!"}
 
 
-@app.websocket("/api/ws/notifications")
+@app.websocket("/dissertation/api/ws/notifications")
 async def notification_endpoint(websocket: WebSocket):
     """
     WebSocket endpoint for notifications.
@@ -161,7 +175,7 @@ async def notification_endpoint(websocket: WebSocket):
         notification_clients.pop(session_id, None)
 
 
-@app.websocket("/api/ws/dissertation_analysis_reconnect")
+@app.websocket("/dissertation/api/ws/dissertation_analysis_reconnect")
 async def websocket_reconnect(websocket: WebSocket, session_id: str):
     """
     Handle WebSocket reconnections for dequeued Kafka requests.
@@ -179,15 +193,34 @@ async def websocket_reconnect(websocket: WebSocket, session_id: str):
         connected_websockets.pop(session_id, None)
 
 
-@app.post("/api/postUserData")
-def post_user_data(postData: PostData, db: Session = Depends(get_db)):
+@app.post("/dissertation/api/postUserData")
+def post_user_data(postData: PostData, request: Request, db: Session = Depends(get_db)):
+    # Get session_id from cookies
+    session_id = request.cookies.get("session_id")
+    
+    # Default evaluator value in case session retrieval fails
+    evaluator = "unknown"
+    
+    # Get evaluator name from session if session_id exists
+    if session_id:
+        try:
+            # Get user data from Redis
+            user_data_str = redis_client.get(session_id)
+            if user_data_str:
+                user_data = json.loads(user_data_str)
+                evaluator = user_data.get("name", "unknown")
+        except Exception as e:
+            # Log the error but continue with default evaluator
+            print(f"Error retrieving session data: {e}")
+    
     # Check if user exists based on unique combination of name, degree, and topic
     db_user = db.query(User).filter_by(
         name=postData.userData.name,
         degree=postData.userData.degree,
-        topic=postData.userData.topic
+        topic=postData.userData.topic,
+        evaluator=evaluator  # Use the evaluator from session
     ).first()
-
+    print("evaluator",evaluator)
     if db_user:
         # Update user total score
         db_user.total_score = postData.userData.total_score
@@ -197,7 +230,8 @@ def post_user_data(postData: PostData, db: Session = Depends(get_db)):
             name=postData.userData.name,
             degree=postData.userData.degree,
             topic=postData.userData.topic,
-            total_score=postData.userData.total_score
+            total_score=postData.userData.total_score,
+            evaluator=evaluator  # Use the evaluator from session
         )
         db.add(db_user)
         db.commit()
@@ -205,17 +239,18 @@ def post_user_data(postData: PostData, db: Session = Depends(get_db)):
 
     # Update or insert user score data
     existing_scores = {score.dimension_name: score for score in db_user.scores}
-    
     for score_data in postData.userScores:
         if score_data.dimension_name in existing_scores:
             # Update existing score
             existing_scores[score_data.dimension_name].score = score_data.score
         else:
+            print("postData.userScores",score_data.data)
             # Insert new score
             db_score = UserScore(
                 user_id=db_user.id,
                 dimension_name=score_data.dimension_name,
-                score=score_data.score
+                score=score_data.score,
+                data=score_data.data
             )
             db.add(db_score)
     
@@ -224,7 +259,7 @@ def post_user_data(postData: PostData, db: Session = Depends(get_db)):
     return {"message": "Data successfully stored", "user_id": db_user.id}
 
 
-@app.post("/api/submitFeedback")
+@app.post("/dissertation/api/submitFeedback")
 def submit_feedback(feedback_data: FeedbackData, db: Session = Depends(get_db)):
     try:
         # Insert the feedback into the database
@@ -245,7 +280,7 @@ def submit_feedback(feedback_data: FeedbackData, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@app.post("/api/extract_text_from_file_and_analyze_images")
+@app.post("/dissertation/api/extract_text_from_file_and_analyze_images")
 async def analyze_file(file: UploadFile = File(...)):
     try:
         if file.filename.endswith(".pdf"):
@@ -259,7 +294,7 @@ async def analyze_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Failed to process the file. Please try again.") from e
 
 
-@app.post("/api/pre_analyze")
+@app.post("/dissertation/api/pre_analyze")
 async def pre_analysis(request: QueryRequestThesis):
     try:
         # Process initial agents in batch
@@ -288,7 +323,7 @@ async def pre_analysis(request: QueryRequestThesis):
         )
 
 
-@app.post("/api/scope_extraction")
+@app.post("/dissertation/api/scope_extraction")
 async def scope_extractor(dissertation_pre_analysis: QueryRequestThesis):
     try:
         # Extract scope of agent from pre analysis
@@ -304,7 +339,7 @@ async def scope_extractor(dissertation_pre_analysis: QueryRequestThesis):
         )
 
 
-@app.post("/api/generate_scoped_feedback")
+@app.post("/dissertation/api/generate_scoped_feedback")
 async def scoped_feedback(request: QueryScope):
     try:
         # Extract scope of agent from pre analysis
@@ -320,7 +355,7 @@ async def scoped_feedback(request: QueryScope):
         )
 
 
-@app.websocket("/api/ws/dissertation_analysis")
+@app.websocket("/dissertation/api/ws/dissertation_analysis")
 async def websocket_dissertation(websocket: WebSocket):
     """
     WebSocket endpoint for dissertation analysis.
@@ -413,8 +448,465 @@ async def websocket_dissertation(websocket: WebSocket):
         await decrement_users()
 
 
+
+    # Database Models
+
+
+async def verify_session_middleware(request: Request, allowed_roles: list = None):
+    session_id = request.cookies.get("session_id")
+    user_role_cookie = request.cookies.get("user_role")
+
+    if not session_id or not user_role_cookie:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+
+    user_data_json = redis_client.get(session_id)
+    if not user_data_json:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired"
+        )
+
+    try:
+        user_data = json.loads(user_data_json)
+
+        if user_data.get("role") != user_role_cookie:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid session"
+            )
+
+        if allowed_roles and user_data.get("role").lower() not in [role.lower() for role in allowed_roles]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Required role: {', '.join(allowed_roles)}"
+            )
+
+        request.state.user_data = user_data
+        return user_data  # This return was missing
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Authentication error: {str(e)}"
+        )
+
+
+def get_verified_user(allowed_roles: list = None):
+    """Returns a dependency function that verifies session with allowed roles"""
+    async def dependency(request: Request):
+        user_data = await verify_session_middleware(request, allowed_roles)
+        return user_data
+
+    return dependency
+
+@app.get("/dissertation/api/rubrics", response_model=List[RubricResponse])
+async def get_all_rubrics(
+    request: Request,  # Missing request parameter
+    user_data: dict = Depends(get_verified_user(["staff", "STAFF", "admin", "ADMIN"])),
+    db: Session = Depends(get_db)
+):
+    """Get all rubrics"""
+    print("USER DATA",user_data)
+    try:
+        rubrics = db.query(Rubric).all()
+        return rubrics
+    except Exception as e:
+        logger.error(f"Error fetching rubrics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error fetching rubrics"
+        )
+
+@app.get("/dissertation/api/users", response_model=List[UserDataResponse])
+async def get_users_by_name(
+    request: Request,
+    user_data: dict = Depends(get_verified_user(["staff", "STAFF", "admin", "ADMIN"])),
+    db: Session = Depends(get_db)
+):
+    name = user_data.get("name")
+
+    if not name:
+        raise HTTPException(status_code=400, detail="Name not found in session")
+
+    users = db.query(User).filter(User.evaluator == name).all()
+
+    if not users:
+        raise HTTPException(status_code=404, detail=f"No users found with name {name}")
+
+    return [
+        UserDataResponse(
+            id=user.id,
+            name=user.name,
+            degree=user.degree,
+            topic=user.topic,
+            total_score=user.total_score,
+            scores=[
+                DimensionScoreResponse(
+                    dimension_name=score.dimension_name,
+                    score=score.score,
+                    data=score.data
+                ) for score in user.scores
+            ]
+        ) for user in users
+    ]
+
+
+@app.put("/dissertation/api/users/{user_id}/scores")
+async def update_user_scores(
+    user_id: int, 
+    scores: List[DimensionScoreResponse],
+    request: Request,  
+    user_data: dict = Depends(get_verified_user(["staff", "STAFF", "admin", "ADMIN"])),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
+    
+    # Update user scores
+    for score_update in scores:
+        score_obj = db.query(UserScore).filter(
+            UserScore.user_id == user_id,
+            UserScore.dimension_name == score_update.dimension_name
+        ).first()
+        
+        if score_obj:
+            score_obj.score = score_update.score
+    
+    # Recalculate total score
+    total_score = sum(score.score for score in user.scores)
+    user.total_score = total_score
+    
+    db.commit()
+    
+    return {
+        "message": "Scores updated successfully",
+        "user_id": user_id,
+        "total_score": total_score
+    }
+
+@app.get("/dissertation/api/rubrics/{rubric_id}", response_model=RubricResponse)
+async def get_rubric_by_id(rubric_id: int, 
+    request: Request,  # Missing request parameter
+    user_data: dict = Depends(get_verified_user(["staff", "STAFF", "admin", "ADMIN"])),
+    db: Session = Depends(get_db)):
+    """Get a specific rubric by ID"""
+    try:
+        rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
+        if not rubric:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Rubric with ID {rubric_id} not found"
+            )
+        return rubric
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching rubric {rubric_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error fetching rubric"
+        )
+
+@app.post("/dissertation/api/rubrics", response_model=RubricResponse, status_code=status.HTTP_201_CREATED)
+async def create_rubric(rubric: RubricCreate,
+    request: Request,  # Missing request parameter
+    user_data: dict = Depends(get_verified_user(["staff", "STAFF", "admin", "ADMIN"])),
+      db: Session = Depends(get_db)):
+    """Create a new rubric"""
+    try:
+        # Check for existing rubric with same name
+        existing_rubric = db.query(Rubric).filter(Rubric.name == rubric.name).first()
+        if existing_rubric:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Rubric with name '{rubric.name}' already exists"
+            )
+        
+        # Create new rubric
+        db_rubric = Rubric(
+            name=rubric.name,
+            dimensions=[dimension.dict() for dimension in rubric.dimensions]
+        )
+        db.add(db_rubric)
+        db.commit()
+        db.refresh(db_rubric)
+        return db_rubric
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating rubric: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error creating rubric"
+        )
+
+@app.put("/dissertation/api/rubrics/{rubric_id}", response_model=RubricResponse)
+async def update_rubric(rubric_id: int, rubric: RubricUpdate,
+    request: Request,  # Missing request parameter
+    user_data: dict = Depends(get_verified_user(["staff", "STAFF", "admin", "ADMIN"])),db: Session = Depends(get_db)):
+    """Update an existing rubric"""
+    try:
+        # Get existing rubric
+        db_rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
+        if not db_rubric:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Rubric with ID {rubric_id} not found"
+            )
+        
+        # Check for name conflict (if name is changing)
+        if rubric.name != db_rubric.name:
+            name_conflict = db.query(Rubric).filter(
+                Rubric.name == rubric.name,
+                Rubric.id != rubric_id
+            ).first()
+            if name_conflict:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Rubric with name '{rubric.name}' already exists"
+                )
+        
+        # Update rubric
+        db_rubric.name = rubric.name
+        db_rubric.dimensions = [dimension.dict() for dimension in rubric.dimensions]
+        
+        db.commit()
+        db.refresh(db_rubric)
+        return db_rubric
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating rubric {rubric_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error updating rubric"
+        )
+
+@app.delete("/dissertation/api/rubrics/{rubric_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_rubric(rubric_id: int,
+    request: Request,  # Missing request parameter
+    user_data: dict = Depends(get_verified_user(["staff", "STAFF", "admin", "ADMIN"])), db: Session = Depends(get_db)):
+    """Delete a rubric"""
+    try:
+        # Get existing rubric
+        db_rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
+        if not db_rubric:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Rubric with ID {rubric_id} not found"
+            )
+        
+        # Delete rubric
+        db.delete(db_rubric)
+        db.commit()
+        return None
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting rubric {rubric_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error deleting rubric"
+        )
+
+
+
+
+@app.get("/dissertation/api/login")
+def login():
+    authn_request = create_authn_request()
+    encoded_request = compress_and_encode_request(authn_request)
+    return Response(content=encoded_request, media_type="text/plain")
+
+
+@app.get('/dissertation/api/logout')
+async def handle_logout(request: Request, response: Response):
+    # Get session_id from cookies
+    session_id = request.cookies.get("session_id")
+    user_role = request.cookies.get("user_role")
+    
+    if session_id:
+        redis_client.delete(session_id)
+
+    if user_role:
+        redis_client.delete(user_role)
+    
+    # Clear session_id cookie
+    response.set_cookie(key="session_id", value="", httponly=True, secure=True, max_age=0, samesite="None")
+    response.set_cookie(key="user_role", value="", httponly=True, secure=True, max_age=0, samesite="None")
+    
+    # Return success response with redirect URL
+    return {"success": True, "redirect_url": "https://elearn.bits-pilani.ac.in/user/"}
+
+
+
+redis_client = redis.StrictRedis(host="localhost", port=6379, decode_responses=True)
+
+# In-memory storage
+stored_data = {
+    "api_data": None
+}
+
+@app.post("/dissertation/Shibboleth.sso/SAML2/POST")
+async def receive_saml_response(request: Request):
+    form_data = await request.form()
+    saml_response = form_data.get("SAMLResponse")
+
+    if not saml_response:
+        return HTMLResponse(content="<h1>SAMLResponse parameter missing</h1>", status_code=400)
+
+    try:
+        # Decode the SAMLResponse
+        decoded_response = base64.b64decode(saml_response).decode("utf-8")
+        print("DECODED RESPONSE", decoded_response)
+        
+        # Parse the XML to extract the NameID and other attributes
+        root = ET.fromstring(decoded_response)
+        namespace = {
+            "saml2": "urn:oasis:names:tc:SAML:2.0:assertion",
+            "saml2p": "urn:oasis:names:tc:SAML:2.0:protocol"
+        }
+        
+        # Extract NameID
+        name_id_element = root.find(".//saml2:NameID", namespace)
+        if name_id_element is None:
+            return HTMLResponse(content="<h1>NameID not found in SAMLResponse</h1>", status_code=400)
+        name_id = name_id_element.text
+        
+        # Extract user's name (cn attribute)
+        cn_element = root.find(".//saml2:Attribute[@FriendlyName='cn']/saml2:AttributeValue", namespace)
+        user_name = cn_element.text if cn_element is not None else "Unknown User"
+        
+        # Extract user's role (employeeType attribute)
+        role_element = root.find(".//saml2:Attribute[@FriendlyName='employeeType']/saml2:AttributeValue", namespace)
+        user_role = role_element.text if role_element is not None else "unknown"
+        
+        # Define the API URL with the extracted NameID
+        api_url = f"https://elearn.bits-pilani.ac.in/api-proxy/v2/get-user-courses/{name_id}/"
+        headers = {"Auth": AUTH_TOKEN}  # Use the dynamically imported token
+
+        # Fetch data from the API
+        async with httpx.AsyncClient() as client:
+            response = await client.get(api_url, headers=headers)
+            if response.status_code == 200:
+                api_data = response.json()
+                # Store the decoded_response and fetched data
+                stored_data = {}  # Define this appropriately for your application
+                stored_data["api_data"] = api_data
+                print("API data", api_data)
+            else:
+                return HTMLResponse(
+                    content=f"<h1>Failed to fetch data from API. Status code: {response.status_code}</h1>",
+                    status_code=response.status_code,
+                )
+        
+        # Generate a unique session ID
+        session_id = str(uuid.uuid4())
+        
+        # Store user data in Redis as JSON string
+        user_data = {
+            "email": name_id,
+            "name": user_name,
+            "role": user_role
+        }
+        redis_client.setex(session_id, 3600, json.dumps(user_data))
+
+        redirect_url = "http://localhost:4002/HomePage"
+        response = HTMLResponse(content=f"""
+            <html>
+                <head>
+                    <meta http-equiv="refresh" content="0; url={redirect_url}">
+                </head>
+                <body>
+                    <p>Redirecting...</p>
+                </body>
+            </html>
+        """, status_code=200)
+        
+        # Set the session ID in the cookie
+        response.set_cookie(key="session_id", value=session_id, httponly=True, secure=True, max_age=3600, samesite="None")
+        response.set_cookie(key="user_role", value=user_role, httponly=False, secure=True, max_age=3600, samesite="None")
+
+        return response
+
+    except Exception as e:
+        return HTMLResponse(content=f"<h1>Error processing SAMLResponse: {str(e)}</h1>", status_code=500)
+    
+
+    
+@app.get("/dissertation/Shibboleth.sso/SLO/Redirect")
+async def handle_slo_redirect(request: Request):
+    """
+    Handle SAML Logout Response via Redirect binding.
+    """
+    try:
+        saml_response = request.query_params.get("SAMLResponse")
+        if not saml_response:
+            logging.error("SAMLResponse parameter is missing")
+            raise HTTPException(status_code=400, detail="SAMLResponse parameter is missing")
+
+        url_decoded_response = unquote(saml_response)
+        logging.info("URL-decoded SAMLResponse: %s", url_decoded_response)
+
+        decoded_response = base64.b64decode(url_decoded_response).decode("utf-8")
+        logging.info("Decoded SAMLResponse: %s", decoded_response)
+
+        return {
+            "message": "SAML Logout Response processed successfully",
+            "decoded_response": decoded_response,
+        }
+
+    except base64.binascii.Error as e:
+        logging.error("Error decoding Base64 SAMLResponse: %s", str(e))
+        raise HTTPException(status_code=400, detail="Invalid Base64 encoding in SAMLResponse")
+    except Exception as e:
+        logging.error("Unexpected error: %s", str(e))
+        raise HTTPException(status_code=500, detail="Failed to process SAML Logout Response")
+
+@app.post("/dissertation/api/verify-session")
+async def verify_session(request: Request):
+    # Get session ID and user role from cookies
+    session_id = request.cookies.get("session_id")
+    user_role_cookie = request.cookies.get("user_role")
+
+    if not session_id or not user_role_cookie:
+        return {"isValid": False}
+
+    # Check if the session exists in Redis
+    user_data_json = redis_client.get(session_id)
+    if not user_data_json:
+        return {"isValid": False}
+        
+    # Parse the user data from Redis
+    try:
+        user_data = json.loads(user_data_json)
+        # Check if the user role in Redis matches the cookie
+        if user_data.get("role") == user_role_cookie:
+            return {"isValid": True}
+        else:
+            return {"isValid": False}
+    except Exception as e:
+        print(f"Error verifying session: {e}")
+        return {"isValid": False}
+
+
+
+@app.get("/dissertation/api/get-saml-data")
+async def get_saml_data():
+    """
+    Endpoint to fetch stored decoded response and API data.
+    """
+    return JSONResponse(content=stored_data)
+
 def main():
-    uvicorn.run(app, host="0.0.0.0", port=8006)
+    uvicorn.run(app, host="0.0.0.0", port=8008)
 
 if __name__ == "__main__":
     main()

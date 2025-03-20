@@ -1,9 +1,10 @@
 from pydantic import BaseModel
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, UniqueConstraint,JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
-from typing import Dict, Optional ,List
+from typing import Any, Dict, List, Optional
 from typing_extensions import TypedDict
+
 
 Base = declarative_base()
 
@@ -14,6 +15,7 @@ class User(Base):
     degree = Column(String(255))
     topic = Column(Text)  
     total_score = Column(Integer)
+    evaluator = Column(String(255), index=True)
 
     scores = relationship("UserScore", back_populates="user")
 
@@ -27,6 +29,8 @@ class UserScore(Base):
     user_id = Column(Integer, ForeignKey('Users.id'))
     dimension_name = Column(String(255))
     score = Column(Integer)
+    data = Column(Text)  
+
 
     user = relationship("User", back_populates="scores")
 
@@ -71,6 +75,7 @@ class UserData(BaseModel):
 class UserScoreData(BaseModel):
     dimension_name: str
     score: float
+    data:str
 
 class PostData(BaseModel):
     userData: UserData
@@ -81,3 +86,60 @@ class FeedbackData(BaseModel):
     feedback: str
     preAnalysisData: str
 
+class Rubric(Base):
+    __tablename__ = "rubrics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    dimensions = Column(JSON, nullable=False, default=list)
+
+# Pydantic Models for API
+class ScoreExplanationDetail(BaseModel):
+    Description: str
+    Examples: str
+    Explanation: str
+
+class ScoreExplanation(BaseModel):
+    Score_1: ScoreExplanationDetail
+    Score_2: ScoreExplanationDetail
+    Score_3: ScoreExplanationDetail
+    Score_4: ScoreExplanationDetail
+    Score_5: ScoreExplanationDetail
+
+    class Config:
+        arbitrary_types_allowed = True
+
+class Dimension(BaseModel):
+    name: str
+    criteria_explanation: str
+    criteria_output: Dict[str, str]
+    score_explanation: Dict[str, Dict[str, str]]
+
+class RubricCreate(BaseModel):
+    name: str
+    dimensions: List[Dimension]
+
+class RubricUpdate(BaseModel):
+    name: str
+    dimensions: List[Dimension]
+
+class RubricResponse(BaseModel):
+    id: int
+    name: str
+    dimensions: List[Dict[str, Any]]
+
+    class Config:
+        orm_mode = True
+
+class DimensionScoreResponse(BaseModel):
+    dimension_name: str
+    score: int
+    data:str
+    
+class UserDataResponse(BaseModel):
+    id: int
+    name: str
+    degree: str
+    topic: str
+    total_score: float
+    scores: List[DimensionScoreResponse]
