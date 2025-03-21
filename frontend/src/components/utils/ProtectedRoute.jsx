@@ -4,7 +4,7 @@ import axios from 'axios';
 import url from '../url'
 
 // Protected route wrapper component
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children }) => { 
   const [isAuthenticated, setIsAuthenticated] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
