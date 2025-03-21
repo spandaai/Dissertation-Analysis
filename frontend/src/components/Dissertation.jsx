@@ -582,7 +582,7 @@ const fetchScopedFeedback = async (scope, feedback) => {
   try {
     console.log("Generating scoped feedback...");
 
-    const formattedScope = Array.isArray(scope) ? scope.join("\n") : scope;  // ✅ Convert array to string
+    const formattedScope = Array.isArray(scope) ? scope.join("\n") : scope;
 
     const formattedFeedback = { criteria_evaluations: feedback };
 
@@ -591,7 +591,7 @@ const fetchScopedFeedback = async (scope, feedback) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         feedback: formattedFeedback,
-        scope: formattedScope,  // ✅ Now correctly formatted
+        scope: formattedScope,
       }),
     });
 
@@ -601,9 +601,18 @@ const fetchScopedFeedback = async (scope, feedback) => {
     console.log("Scoped feedback received:", scopedFeedback);
 
     setScopeFeedback(scopedFeedback); // Save feedback to state
+    
+    // Now that EVERYTHING is done, reset loading states
+    setResponseloading(false);
+    setAnalyzing(false);
+    setStreamingActive(false);
 
   } catch (error) {
     console.error("Error generating scoped feedback:", error);
+    // Also reset loading states on error
+    setResponseloading(false);
+    setAnalyzing(false);
+    setStreamingActive(false);
   }
 };
 
@@ -622,9 +631,13 @@ const fetchScopeExtraction = async (preAnalyzedSummary, feedback) => {
     console.log("Scope extracted:", scope);
 
     // Now fetch scoped feedback
-    fetchScopedFeedback(scope, feedback);
+    await fetchScopedFeedback(scope, feedback);
   } catch (error) {
     console.error("Error extracting scope:", error);
+    // Reset loading states if scope extraction fails
+    setResponseloading(false);
+    setAnalyzing(false);
+    setStreamingActive(false);
   }
 };
 
@@ -807,7 +820,7 @@ const handleWebSocketMessage = (response) => {
         ...prev,
         evaluation_complete: true,
       }));
-      setAnalyzing(false);
+      // setAnalyzing(false);
       break;
 
     case "error":
@@ -1003,12 +1016,12 @@ const  handleEvaluate = async () => {
     websocket.onclose = () => {
       console.log("WebSocket connection closed");
       // Only reset the button if the evaluation process is complete
-      if (!queueStatus?.queue) {
-        setResponseloading(false);
-        setAnalyzing(false);
-        setStreamingActive(false);
+      // if (!queueStatus?.queue) {
+      //   setResponseloading(false);
+      //   setAnalyzing(false);
+      //   setStreamingActive(false);
      
-      }
+      // }
     };
 
     websocket.onerror = (error) => {
