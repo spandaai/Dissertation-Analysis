@@ -2,12 +2,15 @@ from backend.Agents.text_agents import scoring_agent
 from backend.InferenceEngine.inference_engines import stream_llm, ModelType
 from backend.src.types import QueryRequestThesisAndRubric
 
+from dapr.clients import DaprClient
 from fastapi import WebSocket, WebSocketDisconnect
 import logging
 import re
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+DAPR_STORE_NAME = "statestore"
 
 class CancellationToken:
     def __init__(self):
@@ -176,6 +179,18 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
                     "topic": topic
                 }
             })
+        with DaprClient() as client:
+            client.save_state(
+                store_name=DAPR_STORE_NAME,
+                key=name_of_author,
+                value={
+                    "criteria_evaluations": evaluation_results,
+                    "total_score": total_score,
+                    "name": name_of_author,
+                    "degree": degree_of_student,
+                    "topic": topic
+                }
+            )
 
     except Exception as e:
         logger.error(f"Error in process_request: {e}")
