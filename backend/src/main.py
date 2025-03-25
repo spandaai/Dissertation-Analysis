@@ -765,7 +765,6 @@ async def receive_saml_response(request: Request):
     try:
         # Decode the SAMLResponse
         decoded_response = base64.b64decode(saml_response).decode("utf-8")
-        print("DECODED RESPONSE", decoded_response)
         
         # Parse the XML to extract the NameID and other attributes
         root = ET.fromstring(decoded_response)
@@ -787,25 +786,6 @@ async def receive_saml_response(request: Request):
         # Extract user's role (employeeType attribute)
         role_element = root.find(".//saml2:Attribute[@FriendlyName='employeeType']/saml2:AttributeValue", namespace)
         user_role = role_element.text if role_element is not None else "unknown"
-        
-        # Define the API URL with the extracted NameID
-        api_url = f"https://elearn.bits-pilani.ac.in/api-proxy/v2/get-user-courses/{name_id}/"
-        headers = {"Auth": AUTH_TOKEN}  # Use the dynamically imported token
-
-        # Fetch data from the API
-        async with httpx.AsyncClient() as client:
-            response = await client.get(api_url, headers=headers)
-            if response.status_code == 200:
-                api_data = response.json()
-                # Store the decoded_response and fetched data
-                stored_data = {}  # Define this appropriately for your application
-                stored_data["api_data"] = api_data
-                print("API data", api_data)
-            else:
-                return HTMLResponse(
-                    content=f"<h1>Failed to fetch data from API. Status code: {response.status_code}</h1>",
-                    status_code=response.status_code,
-                )
         
         # Generate a unique session ID
         session_id = str(uuid.uuid4())
