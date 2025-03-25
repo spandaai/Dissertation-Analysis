@@ -1,8 +1,9 @@
-from backend.src.utils import process_pdf, process_docx, process_initial_agents
-from backend.Agents.text_agents import summarize_and_analyze_agent, extract_scope_agent, scoped_suggestions_agent
-from backend.src.types import *
-from backend.src.logic import CancellationToken, process_request
+from backend.Agents.text_agents import summarize_and_analyze_agent, extract_scope_agent, scoped_suggestions_agent, scoring_agent
+from backend.InferenceEngine.inference_engines import invoke_llm, ModelType
 from backend.src.kafka_utils import increment_users, decrement_users, get_active_users, send_to_kafka, consume_messages, create_kafka_topic
+from backend.src.logic import CancellationToken, process_request
+from backend.src.types import *
+from backend.src.utils import process_pdf, process_docx, process_initial_agents
 import base64
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -28,7 +29,7 @@ from sqlalchemy.orm import Session, relationship
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from urllib.parse import unquote
-
+import re
 import redis 
 import xml.etree.ElementTree as ET
 load_dotenv()
@@ -451,6 +452,85 @@ async def websocket_dissertation(websocket: WebSocket):
 
     # Database Models
 
+@app.post("/dissertation/api/dissertation_analysis")
+async def post_dissertation(request: DissertationRequestSignature, db: Session = Depends(get_db)):
+    """
+    Post endpoint for dissertation analysis.
+    Handles direct single dissertation call.
+    """
+    # Dissertation evaluation process
+    dissertation_system_prompt = """You are an impartial academic evaluator - an expert in analyzing the summarized dissertation provided to you. 
+Your task is to assess the quality of the provided summarized dissertation in relation to specific evaluation criteria."""
+    total_score = 0
+    user_scores = []
+    evaluation_results = dict()
+    
+    # Process each rubric criterion
+    for criterion, explanation in request.query.rubric.items():
+
+        # Build the user prompt for this criterion
+        dissertation_user_prompt = f"""
+# Input Materials
+## Dissertation Text
+{request.query.pre_analysis.pre_analyzed_summary}
+
+## Evaluation Context
+- Author: {request.query.pre_analysis.name}
+- Academic Field: {request.query.pre_analysis.degree}
+
+## Assessment Criterion and its explanation
+### {criterion}:
+#### Explanation: {explanation['criteria_explanation']}
+
+{explanation['criteria_output']}
+
+Please make sure that you critique the work heavily, including all improvements that can be made.
+
+DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO SCORES ASSOCIATED WITH IT.
+"""
+        if request.query.feedback:
+            dissertation_user_prompt += f'\nIMPORTANT(The following feedback was provided by an expert. Consider the feedback properly, and ensure your evaluation follows this feedback): {request.query.feedback}'
+        
+        analysis = invoke_llm(dissertation_system_prompt, dissertation_user_prompt, ModelType.ANALYSIS)
+
+        graded_response = await scoring_agent(
+                        analysis, 
+                        criterion, 
+                        explanation['score_explanation'], 
+                        explanation['criteria_explanation'],
+                        request.feedback
+                    )
+        
+        # Extract score using regex
+        pattern = r"spanda_score\s*:\s*(?:\*{1,2}\s*)?(\d+(?:\.\d+)?)\s*(?:\*{1,2})?"
+        match = re.search(pattern, graded_response, re.IGNORECASE)
+        score = float(match.group(1)) if match else 0
+        total_score += score
+        user_scores.append(UserScore(user_id=request.user.id, dimension_name=criterion, score=score, data=analysis))
+        evaluation_results[criterion] = {
+            "feedback": analysis,
+            "score": score
+        }
+        
+    db.add_all(user_scores)
+    db.commit()
+    return evaluation_results
+
+@app.post("/dissertation/api/batch_input")
+async def batch_upload(files: List[UploadFile] = File(...), db: Session = Depends(get_db)):
+    for file in files:
+        if file.filename.endswith(".pdf"):
+            text = await process_pdf(file)
+        elif file.filename.endswith(".docx"):
+            text = await process_docx(file)
+        preanalysis = await pre_analysis(text['text_and_image_analysis'])
+        request = DissertationRequestSignature(
+            user= User(name= preanalysis['name'],
+                degree= preanalysis['degree'],
+                topic= preanalysis['topic']),
+            filename= file.filename,
+            query= preanalysis)
+        await post_dissertation(request, db)
 
 async def verify_session_middleware(request: Request, allowed_roles: list = None):
     session_id = request.cookies.get("session_id")
