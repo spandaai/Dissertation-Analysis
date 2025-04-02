@@ -1,5 +1,5 @@
 from backend.Agents.text_agents import scoring_agent
-from backend.InferenceEngine.inference_engines import stream_llm, ModelType
+from backend.InferenceEngine.inference_engines import stream_llm, ModelType, invoke_llm
 from backend.src.types import QueryRequestThesisAndRubric
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -181,3 +181,92 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
         logger.error(f"Error in process_request: {e}")
         if not cancellation_token.ws_closed:
             await websocket.send_json({"type": "error", "data": {"message": str(e)}})
+
+
+async def process_request(request: QueryRequestThesisAndRubric):
+    """
+    Process the dissertation analysis request and return results.
+    """
+    try:
+        # Check initial metadata to process request
+        degree_of_student = request.pre_analysis.degree
+        name_of_author = request.pre_analysis.name
+        topic = request.pre_analysis.topic
+    
+    except Exception as e:
+        logger.error(f"Error in process_request: {e}")
+
+    # Dissertation evaluation process
+    dissertation_system_prompt = """You are an impartial academic evaluator - an expert in analyzing the summarized dissertation provided to you. 
+Your task is to assess the quality of the provided summarized dissertation in relation to specific evaluation criteria."""
+
+    evaluation_results = {}
+    total_score = 0
+
+    # Process each rubric criterion
+    for criterion, explanation in request.rubric.items():
+
+        # Build the user prompt for this criterion
+        dissertation_user_prompt = f"""
+# Input Materials
+## Dissertation Text
+{request.pre_analysis.pre_analyzed_summary}
+
+## Evaluation Context
+- Author: {name_of_author}
+- Academic Field: {degree_of_student}
+
+## Assessment Criterion and its explanation
+### {criterion}:
+#### Explanation: {explanation['criteria_explanation']}
+
+{explanation['criteria_output']}
+
+Please make sure that you critique the work heavily, including all improvements that can be made.
+
+DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO SCORES ASSOCIATED WITH IT.
+"""
+        if request.feedback:
+            dissertation_user_prompt += f'\nIMPORTANT(The following feedback was provided by an expert. Consider the feedback properly, and ensure your evaluation follows this feedback): {request.feedback}'
+
+        # Stream analysis results to the client
+        try:
+            analyzed_dissertation = invoke_llm(
+                    system_prompt=dissertation_system_prompt,
+                    user_prompt=dissertation_user_prompt,
+                    model_type=ModelType.ANALYSIS,
+                )
+            
+            # Perform scoring
+            graded_response = await scoring_agent(
+                analyzed_dissertation, 
+                criterion, 
+                explanation['score_explanation'], 
+                explanation['criteria_explanation'],
+                request.feedback
+            )
+
+            # Extract score using regex
+            pattern = r"spanda_score\s*:\s*(?:\*{1,2}\s*)?(\d+(?:\.\d+)?)\s*(?:\*{1,2})?"
+            match = re.search(pattern, graded_response, re.IGNORECASE)
+            score = float(match.group(1)) if match else 0
+            total_score += score
+
+            evaluation_results[criterion] = {
+                "feedback": analyzed_dissertation,
+                "score": score
+            }
+
+        except Exception as e:
+            logger.error(f"Error processing criterion {criterion}: {str(e)}")
+            break
+
+    # Send final evaluation results
+
+    return {
+        "criteria_evaluations": evaluation_results,
+        "total_score": total_score,
+        "name": name_of_author,
+        "degree": degree_of_student,
+        "topic": topic
+    }
