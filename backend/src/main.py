@@ -460,17 +460,15 @@ async def post_dissertation(request: QueryRequestThesisAndRubric, db: Session = 
     Post endpoint for dissertation analysis.
     Handles direct single dissertation call.
     """
-    print(f'dis pipe linin {request}')
-    return
     ###### please fix this ty <3
     evaluator = "unknown"
     result = dict()
     try:
         logger.info(f"Processing request for {request.pre_analysis.name} on topic {request.pre_analysis.topic}")
         # Process the request immediately
-        result = process_request(request)
+        result = await process_request(request)
     except Exception as e:
-        logger.error(f"Error in WebSocket processing: {e}")
+        logger.error(f"Error in processing: {e}")
         return {"type": "error", "data": {"message": str(e)}}
     
     if result:
@@ -482,6 +480,7 @@ async def post_dissertation(request: QueryRequestThesisAndRubric, db: Session = 
                 total_score=result['total_score'],
                 evaluator=evaluator  # Use the evaluator from session
             )
+        breakpoint()
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
@@ -509,24 +508,31 @@ async def post_dissertation(request: QueryRequestThesisAndRubric, db: Session = 
 @app.post("/dissertation/api/batch_input")
 async def batch_upload(files: List[UploadFile] = File(...), process_count: int|None = None, db: Session = Depends(get_db)):
     ### counting on vllm's capablity to handle multiple simultaneous requests and switch out gpu ram
-    with Pool(processes = process_count) as pool:
-        pool.map(spawner, files)
+    # with Pool(processes = process_count) as pool:
+    #     pool.map(spawner, files)
+    for file in files:
+        await spawner(file)
 
 
-def spawner(file: UploadFile):
+async def spawner(file: UploadFile):
     try:
+        print('reading')
+        thesis_obj = await analyze_file(file)
         thesis_request = QueryRequestThesis(
-            thesis = asyncio.run(analyze_file(file))['text_and_image_analysis']
+            thesis = thesis_obj['text_and_image_analysis']
         )
-        print(thesis_request)
+        print('summarizing')
         summary_request = QueryRequestThesisAndRubric(
             rubric = dict(),    #### fill this please
-            pre_analysis = asyncio.run(pre_analysis(thesis_request))
+            pre_analysis = await pre_analysis(thesis_request)
             #### not adding feedback rn
         )
-        result = asyncio.run(post_dissertation(summary_request))   ## this will handle db parts too
-        return result
+        print('processing', summary_request)
+        result = await post_dissertation(summary_request)   ## this will handle db parts too
+        print('doneeee')
+        return
     except Exception as e:
+        print('exception')
         print(e)
 
 @app.get("/dissertation/api/dbtest")

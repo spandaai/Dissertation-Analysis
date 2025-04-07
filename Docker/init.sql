@@ -1,4 +1,6 @@
-USE da;
+CREATE DATABASE IF NOT EXISTS dissertation_analysis;
+
+USE dissertation_analysis;
 
 CREATE TABLE IF NOT EXISTS Feedbacks (
    id INT AUTO_INCREMENT PRIMARY KEY,
