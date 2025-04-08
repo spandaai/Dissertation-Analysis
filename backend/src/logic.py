@@ -231,7 +231,7 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
 
         # Stream analysis results to the client
         try:
-            analyzed_dissertation = invoke_llm(
+            analyzed_dissertation = await invoke_llm(
                     system_prompt=dissertation_system_prompt,
                     user_prompt=dissertation_user_prompt,
                     model_type=ModelType.ANALYSIS,
@@ -253,7 +253,7 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
             total_score += score
 
             evaluation_results[criterion] = {
-                "feedback": analyzed_dissertation,
+                "feedback": analyzed_dissertation['answer'],
                 "score": score
             }
 

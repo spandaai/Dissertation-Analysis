@@ -6,7 +6,7 @@ from backend.src.types import User, UserScore, Feedback
 from backend.src.types import *
 from backend.src.utils import process_pdf, process_docx, process_initial_agents
 import base64
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, params
 from fastapi.responses import HTMLResponse, RedirectResponse
 import json
 from aiokafka import AIOKafkaProducer
@@ -22,6 +22,7 @@ import os
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker, declarative_base
 from sqlalchemy.exc import OperationalError
+from time import time
 import uvicorn
 import uuid
 import httpx
@@ -30,6 +31,7 @@ from sqlalchemy import Column, Integer, String, JSON, ForeignKey
 from sqlalchemy.orm import Session, relationship
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from urllib.parse import unquote
 import re
 import redis 
@@ -472,36 +474,47 @@ async def post_dissertation(request: QueryRequestThesisAndRubric, db: Session = 
         return {"type": "error", "data": {"message": str(e)}}
     
     if result:
-        # creating a new entry mostly if entry alr exists then should get handled
-        db_user = User(
-                name=result['name'],
-                degree=result['degree'],
-                topic=result['topic'],
-                total_score=result['total_score'],
-                evaluator=evaluator  # Use the evaluator from session
-            )
-        breakpoint()
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
+        try:
+            if isinstance(db, params.Depends):
+                db = SessionLocal()
+            db_user = User(
+                    name=result['name'],
+                    degree=result['degree'],
+                    topic=result['topic'],
+                    total_score=result['total_score'],
+                    evaluator=evaluator  # Use the evaluator from session
+                )
+            db.add(db_user)
+            db.commit()
+            db.refresh(db_user)
         
+        except IntegrityError as e:
+            db.rollback()  # Ensure rollback on error
+            print('entry already exists, skipping')
+            
         db_user = db.query(User).filter_by(
             name=result['name'],
             degree=result['degree'],
             topic=result['topic'],
         ).first()
+        
+        try:
+            if db_user is not None:
+                for criterion in result["criteria_evaluations"]:
+                    score_entry = UserScore(
+                        user_id = db_user.id,
+                        dimension_name = criterion,
+                        score = result["criteria_evaluations"][criterion]['score'],
+                        data = result["criteria_evaluations"][criterion]['feedback']
+                    )
+                    db.add(score_entry)
+                    db.commit()
+                    db.refresh(score_entry)
+        except Exception as e:
+            db.rollback()  # Ensure rollback on error
+            print(f"Error inserting user data: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error")
 
-        if db_user is not None:
-            for criterion in result["criteria_evaluations"]:
-                score_entry = UserScore(
-                    user_id = db_user.id,
-                    dimension_name = criterion,
-                    score = result["criteria_evaluations"][criterion]['feedback'],
-                    data = result["criteria_evaluations"][criterion]['score']
-                )
-                db.add(score_entry)
-                db.commit()
-                db.refresh(score_entry)
     
     return result
 
@@ -516,28 +529,38 @@ async def batch_upload(files: List[UploadFile] = File(...), process_count: int|N
 
 async def spawner(file: UploadFile):
     try:
-        print('reading')
         thesis_obj = await analyze_file(file)
         thesis_request = QueryRequestThesis(
             thesis = thesis_obj['text_and_image_analysis']
         )
-        print('summarizing')
         summary_request = QueryRequestThesisAndRubric(
-            rubric = dict(),    #### fill this please
+            # rubric = dict(),    #### fill this please
+            rubric={
+            "criterion1": {
+                "criteria_explanation": "Explanation for criterion1",
+                "criteria_output": "Output for criterion1",
+                "score_explanation": "Explanation for scoring criterion1"
+            },
+            "criterion2": {
+                "criteria_explanation": "Explanation for criterion2",
+                "criteria_output": "Output for criterion2",
+                "score_explanation": "Explanation for scoring criterion2"
+            }
+        },
             pre_analysis = await pre_analysis(thesis_request)
             #### not adding feedback rn
         )
-        print('processing', summary_request)
         result = await post_dissertation(summary_request)   ## this will handle db parts too
-        print('doneeee')
         return
     except Exception as e:
-        print('exception')
+        print('exception in spawner')
         print(e)
 
 @app.get("/dissertation/api/dbtest")
 async def test_sql(db: Session = Depends(get_db)):
-    ### SAMPLE adding an entry
+    print(type(db))
+    print(isinstance(db, params.Depends))
+    ## SAMPLE adding an entry
     # db_user = User(
     #         name='test1',
     #         degree='test1',
@@ -549,10 +572,10 @@ async def test_sql(db: Session = Depends(get_db)):
     # db.commit()
     # db.refresh(db_user)
 
-    ### SAMPLE querying an entry
-    # res = db.query(User).all()
-    # for user in res:
-    #     print(user.name)
+    ## SAMPLE querying an entry
+    res = db.query(User).all()
+    for user in res:
+        print(user.name)
     return
 
 async def verify_session_middleware(request: Request, allowed_roles: list = None):
