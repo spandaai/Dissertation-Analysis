@@ -52,6 +52,7 @@ notification_clients = {}  # Map of session IDs to WebSocket connections
 connected_websockets = {}
 producer = None  # Single producer instance
 consumer_task = None  # Single consumer task
+semaphore = asyncio.Semaphore(5)  # Semaphore for limiting concurrent users
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -525,10 +526,13 @@ async def batch_upload(files: List[UploadFile] = File(...), process_count: int|N
     #     pool.map(spawner, files)
     # for file in files:
     #     await spawner(file)
-    tasks = [spawner(file) for file in files]
+    tasks = [asyncio.create_task(limit_concurrency(file)) for file in files]
     results = await asyncio.gather(*tasks)
     return results
 
+async def limit_concurrency(file: UploadFile):
+    async with semaphore:
+        return await spawner(file)
 
 async def spawner(file: UploadFile):
     ofile = open('spawn_update2.txt', 'a')
