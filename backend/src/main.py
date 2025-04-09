@@ -523,16 +523,23 @@ async def batch_upload(files: List[UploadFile] = File(...), process_count: int|N
     ### counting on vllm's capablity to handle multiple simultaneous requests and switch out gpu ram
     # with Pool(processes = process_count) as pool:
     #     pool.map(spawner, files)
-    for file in files:
-        await spawner(file)
+    # for file in files:
+    #     await spawner(file)
+    tasks = [spawner(file) for file in files]
+    results = await asyncio.gather(*tasks)
+    return results
 
 
 async def spawner(file: UploadFile):
+    ofile = open('spawn_update2.txt', 'a')
     try:
+        st = time()
         thesis_obj = await analyze_file(file)
         thesis_request = QueryRequestThesis(
             thesis = thesis_obj['text_and_image_analysis']
         )
+        print('mark 1 ', st-time(), file=ofile, flush=True)
+        st = time()
         summary_request = QueryRequestThesisAndRubric(
             # rubric = dict(),    #### fill this please
             rubric={
@@ -550,11 +557,16 @@ async def spawner(file: UploadFile):
             pre_analysis = await pre_analysis(thesis_request)
             #### not adding feedback rn
         )
+        print('mark 2 ', st-time(), file=ofile, flush=True)
+        st = time()
         result = await post_dissertation(summary_request)   ## this will handle db parts too
+        print('mark 3 ', st-time(), file=ofile, flush=True)
+        st = time()
         return
     except Exception as e:
         print('exception in spawner')
         print(e)
+    file.close()
 
 @app.get("/dissertation/api/dbtest")
 async def test_sql(db: Session = Depends(get_db)):
