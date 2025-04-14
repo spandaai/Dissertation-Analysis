@@ -22,7 +22,6 @@ import os
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker, declarative_base
 from sqlalchemy.exc import OperationalError
-from time import time
 import uvicorn
 import uuid
 import httpx
@@ -535,15 +534,11 @@ async def limit_concurrency(file: UploadFile):
         return await spawner(file)
 
 async def spawner(file: UploadFile):
-    ofile = open('spawn_update2.txt', 'a')
     try:
-        st = time()
         thesis_obj = await analyze_file(file)
         thesis_request = QueryRequestThesis(
             thesis = thesis_obj['text_and_image_analysis']
         )
-        print('mark 1 ', st-time(), file=ofile, flush=True)
-        st = time()
         summary_request = QueryRequestThesisAndRubric(
             # rubric = dict(),    #### fill this please
             rubric={
@@ -561,11 +556,7 @@ async def spawner(file: UploadFile):
             pre_analysis = await pre_analysis(thesis_request)
             #### not adding feedback rn
         )
-        print('mark 2 ', st-time(), file=ofile, flush=True)
-        st = time()
         result = await post_dissertation(summary_request)   ## this will handle db parts too
-        print('mark 3 ', st-time(), file=ofile, flush=True)
-        st = time()
         return
     except Exception as e:
         print('exception in spawner')
