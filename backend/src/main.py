@@ -14,7 +14,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from backend.src.saml_utils import *
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, UploadFile, File, HTTPException ,Depends,  WebSocketDisconnect,status
+from fastapi import FastAPI, WebSocket, UploadFile, File, HTTPException ,Depends,  WebSocketDisconnect,status, Form
 from fastapi.middleware.cors import CORSMiddleware 
 import logging
 from multiprocessing import Pool
@@ -528,6 +528,34 @@ async def batch_upload(files: List[UploadFile] = File(...), process_count: int|N
     tasks = [asyncio.create_task(limit_concurrency(file)) for file in files]
     results = await asyncio.gather(*tasks)
     return results
+
+@app.post("/dissertation/api/batch_input/download")
+async def batch_download(files: List[UploadFile] = File(...), username: Optional[str] = Form(None)):
+    """
+    Endpoint to download files.
+    """
+    # create directory structure
+    print(username)
+    if username is None:
+        username = "default"
+    if not os.path.exists("downloaded_files"):
+        os.mkdir("downloaded_files")
+    if not os.path.exists("downloaded_files/{}".format(username)):
+        os.mkdir("downloaded_files/{}".format(username))
+    
+    # assign file indices
+    old_file_indices = [int(f.split('.')[0]) for f in os.listdir(f"downloaded_files/{username}")]
+    old_file_indices.sort()
+    new_index = old_file_indices[-1] + 1 if old_file_indices else 0
+
+    for file in files:
+        # Save the file to the directory
+        file_path = f"downloaded_files/{username}/{new_index}.{file.filename.split('.')[-1]}"
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        new_index += 1
+    return {"message": "Files processed successfully"}
 
 async def limit_concurrency(file: UploadFile):
     async with semaphore:
