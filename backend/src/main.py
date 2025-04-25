@@ -457,13 +457,12 @@ async def websocket_dissertation(websocket: WebSocket):
     # Database Models
 
 @app.post("/dissertation/api/dissertation_analysis")
-async def post_dissertation(request: QueryRequestThesisAndRubric, db: Session = Depends(get_db)):
+async def post_dissertation(request: QueryRequestThesisAndRubric, evaluator: Optional[str], db: Session = Depends(get_db)):
     """
     Post endpoint for dissertation analysis.
     Handles direct single dissertation call.
     """
-    ###### please fix this ty <3
-    evaluator = "unknown"
+    evaluator = "unknown" if evaluator is None else evaluator
     result = dict()
     try:
         logger.info(f"Processing request for {request.pre_analysis.name} on topic {request.pre_analysis.topic}")
@@ -519,13 +518,17 @@ async def post_dissertation(request: QueryRequestThesisAndRubric, db: Session = 
     return result
 
 @app.post("/dissertation/api/batch_input")
-async def batch_upload(files: List[UploadFile] = File(...), process_count: int|None = None, db: Session = Depends(get_db)):
-    ### counting on vllm's capablity to handle multiple simultaneous requests and switch out gpu ram
+async def batch_upload(rubric: Dict[str, RubricCriteria], evaluator: Optional[str] = None, files: List[UploadFile] = File(...), process_count: Optional[int] = None, db: Session = Depends(get_db)):
+    # Parallel processing
     # with Pool(processes = process_count) as pool:
     #     pool.map(spawner, files)
+    
+    # linear processing
     # for file in files:
     #     await spawner(file)
-    tasks = [asyncio.create_task(limit_concurrency(file)) for file in files]
+
+    # Asynchronous processing
+    tasks = [asyncio.create_task(limit_concurrency(file, rubric, evaluator)) for file in files]
     results = await asyncio.gather(*tasks)
     return results
 
@@ -557,34 +560,22 @@ async def batch_download(files: List[UploadFile] = File(...), username: Optional
         new_index += 1
     return {"message": "Files processed successfully"}
 
-async def limit_concurrency(file: UploadFile):
+async def limit_concurrency(file: UploadFile, rubric: Dict[str, RubricCriteria], evaluator: Optional[str] = None):
     async with semaphore:
-        return await spawner(file)
+        return await spawner(file, rubric)
 
-async def spawner(file: UploadFile):
+async def spawner(file: UploadFile, rubric: Dict[str, RubricCriteria], evaluator: Optional[str] = None):
     try:
         thesis_obj = await analyze_file(file)
         thesis_request = QueryRequestThesis(
             thesis = thesis_obj['text_and_image_analysis']
         )
         summary_request = QueryRequestThesisAndRubric(
-            # rubric = dict(),    #### fill this please
-            rubric={
-            "criterion1": {
-                "criteria_explanation": "Explanation for criterion1",
-                "criteria_output": "Output for criterion1",
-                "score_explanation": "Explanation for scoring criterion1"
-            },
-            "criterion2": {
-                "criteria_explanation": "Explanation for criterion2",
-                "criteria_output": "Output for criterion2",
-                "score_explanation": "Explanation for scoring criterion2"
-            }
-        },
+            rubric = rubric,
             pre_analysis = await pre_analysis(thesis_request)
             #### not adding feedback rn
         )
-        result = await post_dissertation(summary_request)   ## this will handle db parts too
+        result = await post_dissertation(summary_request, evaluator)   ## this will handle db parts too
         return
     except Exception as e:
         print('exception in spawner')
