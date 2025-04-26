@@ -69,7 +69,6 @@ const Dissertation = () => {
         withCredentials: true, // Important for session-based auth
       });
   
-      console.log("User Data:", response.data);
     } catch (error) {
       console.error("Error fetching SAML data:", error);
     }
@@ -149,7 +148,6 @@ const Dissertation = () => {
       const rubricData = await response.json();
       setSelectedRubric(rubricData);
       setTransformedRubric(transformRubric(rubricData));
-      console.log('Selected rubric data:', rubricData);
       
       // You can add a callback here or use context/redux to make this data available to other components
       // onRubricSelect(rubricData);

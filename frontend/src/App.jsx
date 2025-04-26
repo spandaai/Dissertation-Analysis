@@ -4,6 +4,7 @@ import Dissertation from './components/Dissertation';
 import Dashboard from './components/Dashboard';
 import RubricManagementApp from './components/RubricPage';
 import ScoreManagement from './components/ScoreManagement';
+import BatchProcess from './components/BatchProcess';
 import HomePage from './components/Home';
 import ProtectedRoute from './components/utils/ProtectedRoute'; // Import the new component
 
@@ -37,6 +38,14 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <ScoreManagement />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/BatchProcess" 
+            element={
+              <ProtectedRoute>
+                <BatchProcess />
               </ProtectedRoute>
             } 
           />

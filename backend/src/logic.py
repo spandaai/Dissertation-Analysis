@@ -183,7 +183,7 @@ DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO
             await websocket.send_json({"type": "error", "data": {"message": str(e)}})
 
 
-async def process_request(request: QueryRequestThesisAndRubric):
+async def batch_process_request(request: QueryRequestThesisAndRubric):
     """
     Process the dissertation analysis request and return results.
     """

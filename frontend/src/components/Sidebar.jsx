@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'; // Import useNavigate
 import '../styles/Sidebar.css'; 
 import bitsLogo from '../styles/images/bitslogo.png'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHome, faBarChart, faClipboard} from '@fortawesome/free-solid-svg-icons';
+import { faHome, faBarChart, faClipboard,faBoxes } from '@fortawesome/free-solid-svg-icons';
 
 function Sidebar({ isActive, toggleSidebar, setSidebarActive }) {
   
@@ -64,8 +64,8 @@ function Sidebar({ isActive, toggleSidebar, setSidebarActive }) {
                         <FontAwesomeIcon icon={faHome} className="card-icon-sidebar" /> Home
                     </Link>
                 </li>
-                  {(userRole === 'STAFF' || userRole === 'staff') && (
-                    <>
+                  {/* {(userRole === 'STAFF' || userRole === 'staff') && (
+                    <> */}
                       <li>
                         <Link to="/RubricPage">
                           <FontAwesomeIcon icon={faClipboard} className="card-icon-sidebar" /> Rubric Management
@@ -77,8 +77,13 @@ function Sidebar({ isActive, toggleSidebar, setSidebarActive }) {
                           <FontAwesomeIcon icon={faBarChart} className="card-icon-sidebar" /> Score Management
                         </Link>
                       </li>
-                    </>
-                  )}
+                      <li>
+                        <Link to="/BatchProcess">
+                          <FontAwesomeIcon icon={faBoxes } className="card-icon-sidebar" /> Bulk Processing
+                        </Link>
+                      </li>
+                    {/* </>
+                  )} */}
 
             </ul>
         </div>

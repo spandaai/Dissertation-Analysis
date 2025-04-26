@@ -210,7 +210,7 @@ const handleSave = async (userId) => {
   return (
   
     <>
-    {userRole === 'STAFF' || userRole === 'staff' ? (
+    {/*userRole === 'STAFF' || userRole === 'staff' ? (*/}
       <div className="score-management">
     <div className="nav">
    <button id="open-btn" className="open-btn" onClick={toggleSidebar}>☰</button>
@@ -365,7 +365,7 @@ const handleSave = async (userId) => {
           </div>
         )}
       </div>
-    ) : (
+   {/* ) : (
   <div className="unauthorized">
     <div className="unauthorized-card">
       <h2>🚫 Unauthorized Access</h2>
@@ -376,7 +376,7 @@ const handleSave = async (userId) => {
     </div>
   </div>
   
-    )}
+    )*/}
   </>
   
   );

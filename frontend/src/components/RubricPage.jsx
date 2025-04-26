@@ -166,93 +166,94 @@ const RubricManagementApp = () => {
   return (
 
 <>
-  {userRole === 'STAFF' || userRole === 'staff' ? (
-    <div className="app-container">
+  {/* {userRole?.toLowerCase() === 'staff' ? ( */}
+  <div className="app-container">
     <div className="nav">
-   <button id="open-btn" className="open-btn" onClick={toggleSidebar}>☰</button>
-   <h1 className="nav-heading">Rubric Management System</h1>
-   <button id="logout-btn" className="logout-btn"  onClick={handleLogout}>
-     <span className="logout-icon">⏻</span>
-     <span className="logout-text">Logout</span>
-   </button>
-</div>
-      <Sidebar isActive={isSidebarActive} toggleSidebar={toggleSidebar} setSidebarActive={setIsSidebarActive} />
-
-      <header className="app-header">
-        <h1></h1>
-        <div className="header-actions">
-          {currentView !== 'list' && (
-            <button className="btn btn-secondary" onClick={() => setCurrentView('list')}>
-              Back to List
-            </button>
-          )}
-          {currentView === 'list' && (
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                setCurrentRubric(null);
-                setCurrentView('add');
-              }}
-            >
-              Create New Rubric
-            </button>
-          )}
-        </div>
-      </header>
-
-      <main className="app-content">
-        {error && <div className="error-message">{error}</div>}
-
-        {isLoading ? (
-          <div className="loading-spinner">Loading...</div>
-        ) : (
-          <>
-            {currentView === 'list' && (
-              <RubricsList
-                rubrics={rubrics}
-                onEdit={(rubric) => {
-                  setCurrentRubric(rubric);
-                  setCurrentView('edit');
-                }}
-                onDelete={handleDeleteRubric}
-              />
-            )}
-
-            {currentView === 'add' && (
-              <RubricForm
-                onSubmit={handleAddRubric}
-                initialData={{
-                  name: '',
-                  dimensions: [],
-                }}
-                formTitle="Create New Rubric"
-              />
-            )}
-
-            {currentView === 'edit' && currentRubric && (
-              <RubricForm
-                onSubmit={handleUpdateRubric}
-                initialData={currentRubric}
-                formTitle={`Edit Rubric: ${currentRubric.name}`}
-              />
-            )}
-          </>
-        )}
-      </main>
+      <button id="open-btn" className="open-btn" onClick={toggleSidebar}>☰</button>
+      <h1 className="nav-heading">Rubric Management System</h1>
+      <button id="logout-btn" className="logout-btn" onClick={handleLogout}>
+        <span className="logout-icon">⏻</span>
+        <span className="logout-text">Logout</span>
+      </button>
     </div>
-  ) : (
-<div className="unauthorized">
-  <div className="unauthorized-card">
-    <h2>🚫 Unauthorized Access</h2>
-    <p>You do not have permission to access this page.</p>
-    <button className="go-back-btn" onClick={() => window.location.href = '/'}>
-      Go to Homepage
-    </button>
-  </div>
-</div>
 
-  )}
+    <Sidebar
+      isActive={isSidebarActive}
+      toggleSidebar={toggleSidebar}
+      setSidebarActive={setIsSidebarActive}
+    />
+
+    <header className="app-header">
+      <h1></h1>
+      <div className="header-actions">
+        {currentView !== 'list' ? (
+          <button className="btn btn-secondary" onClick={() => setCurrentView('list')}>
+            Back to List
+          </button>
+        ) : (
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              setCurrentRubric(null);
+              setCurrentView('add');
+            }}
+          >
+            Create New Rubric
+          </button>
+        )}
+      </div>
+    </header>
+
+    <main className="app-content">
+      {error && <div className="error-message">{error}</div>}
+
+      {isLoading ? (
+        <div className="loading-spinner">Loading...</div>
+      ) : (
+        <>
+          {currentView === 'list' && (
+            <RubricsList
+              rubrics={rubrics}
+              onEdit={(rubric) => {
+                setCurrentRubric(rubric);
+                setCurrentView('edit');
+              }}
+              onDelete={handleDeleteRubric}
+            />
+          )}
+
+          {currentView === 'add' && (
+            <RubricForm
+              onSubmit={handleAddRubric}
+              initialData={{ name: '', dimensions: [] }}
+              formTitle="Create New Rubric"
+            />
+          )}
+
+          {currentView === 'edit' && currentRubric && (
+            <RubricForm
+              onSubmit={handleUpdateRubric}
+              initialData={currentRubric}
+              formTitle={`Edit Rubric: ${currentRubric.name}`}
+            />
+          )}
+        </>
+      )}
+    </main>
+  </div>
+  {/* ) : (
+    <div className="unauthorized">
+      <div className="unauthorized-card">
+        <h2>🚫 Unauthorized Access</h2>
+        <p>You do not have permission to access this page.</p>
+        <button className="go-back-btn" onClick={() => window.location.href = '/'}>
+          Go to Homepage
+        </button>
+      </div>
+    </div>
+  )} */}
 </>
+
 
 
   );
@@ -288,9 +289,9 @@ const RubricsList = ({ rubrics, onEdit, onDelete }) => {
             <button className="btn btn-secondary" onClick={() => onEdit(rubric)}>
               Edit
             </button>
-            <button className="btn btn-danger" onClick={() => onDelete(rubric.id)}>
+            {/* <button className="btn btn-danger" onClick={() => onDelete(rubric.id)}>
               Delete
-            </button>
+            </button> */}
           </div>
         </div>
       ))}

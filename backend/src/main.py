@@ -1,7 +1,7 @@
 from backend.Agents.text_agents import summarize_and_analyze_agent, extract_scope_agent, scoped_suggestions_agent, scoring_agent
 from backend.InferenceEngine.inference_engines import invoke_llm, ModelType
 from backend.src.kafka_utils import increment_users, decrement_users, get_active_users, send_to_kafka, consume_messages, create_kafka_topic
-from backend.src.logic import CancellationToken, process_request
+from backend.src.logic import CancellationToken, process_request, batch_process_request
 from backend.src.types import User, UserScore, Feedback
 from backend.src.types import *
 from backend.src.utils import process_pdf, process_docx, process_initial_agents
@@ -467,7 +467,7 @@ async def post_dissertation(request: QueryRequestThesisAndRubric, evaluator: Opt
     try:
         logger.info(f"Processing request for {request.pre_analysis.name} on topic {request.pre_analysis.topic}")
         # Process the request immediately
-        result = await process_request(request)
+        result = await batch_process_request(request)
     except Exception as e:
         logger.error(f"Error in processing: {e}")
         return {"type": "error", "data": {"message": str(e)}}
@@ -518,19 +518,38 @@ async def post_dissertation(request: QueryRequestThesisAndRubric, evaluator: Opt
     return result
 
 @app.post("/dissertation/api/batch_input")
-async def batch_upload(rubric: Dict[str, RubricCriteria], evaluator: Optional[str] = None, files: List[UploadFile] = File(...), process_count: Optional[int] = None, db: Session = Depends(get_db)):
-    # Parallel processing
-    # with Pool(processes = process_count) as pool:
-    #     pool.map(spawner, files)
+async def batch_upload(
+    request: Request,
+    rubric: str = Form(...),
+    files: List[UploadFile] = File(...),
+    process_count: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    # Parse rubric JSON string to dictionary
+    try:
+        rubric_data = json.loads(rubric)
+    except json.JSONDecodeError:
+        return {"error": "Invalid rubric format. Must be valid JSON."}
+
+    session_id = request.cookies.get("session_id")
     
-    # linear processing
-    # for file in files:
-    #     await spawner(file)
+    evaluator = "unknown"  # Default evaluator
+
+    if session_id:
+        try:
+            user_data_str = redis_client.get(session_id)
+            if user_data_str:
+                user_data = json.loads(user_data_str)
+                evaluator = user_data.get("name", "unknown")
+        except Exception as e:
+            print(f"Error retrieving session data: {e}")
 
     # Asynchronous processing
-    tasks = [asyncio.create_task(limit_concurrency(file, rubric, evaluator)) for file in files]
+    tasks = [asyncio.create_task(limit_concurrency(file, rubric_data, evaluator)) for file in files]
     results = await asyncio.gather(*tasks)
+    
     return results
+
 
 @app.post("/dissertation/api/batch_input/download")
 async def batch_download(files: List[UploadFile] = File(...), username: Optional[str] = Form(None)):
@@ -562,7 +581,7 @@ async def batch_download(files: List[UploadFile] = File(...), username: Optional
 
 async def limit_concurrency(file: UploadFile, rubric: Dict[str, RubricCriteria], evaluator: Optional[str] = None):
     async with semaphore:
-        return await spawner(file, rubric)
+        return await spawner(file, rubric,evaluator)
 
 async def spawner(file: UploadFile, rubric: Dict[str, RubricCriteria], evaluator: Optional[str] = None):
     try:
@@ -604,11 +623,52 @@ async def test_sql(db: Session = Depends(get_db)):
         print(user.name)
     return
 
-async def verify_session_middleware(request: Request, allowed_roles: list = None):
-    session_id = request.cookies.get("session_id")
-    user_role_cookie = request.cookies.get("user_role")
+# async def verify_session_middleware(request: Request, allowed_roles: list = None):
+#     session_id = request.cookies.get("session_id")
+#     user_role_cookie = request.cookies.get("user_role")
 
-    if not session_id or not user_role_cookie:
+#     if not session_id or not user_role_cookie:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Authentication required"
+#         )
+
+#     user_data_json = redis_client.get(session_id)
+#     if not user_data_json:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Session expired"
+#         )
+
+#     try:
+#         user_data = json.loads(user_data_json)
+
+#         if user_data.get("role") != user_role_cookie:
+#             raise HTTPException(
+#                 status_code=status.HTTP_401_UNAUTHORIZED,
+#                 detail="Invalid session"
+#             )
+
+#         if allowed_roles and user_data.get("role").lower() not in [role.lower() for role in allowed_roles]:
+#             raise HTTPException(
+#                 status_code=status.HTTP_403_FORBIDDEN,
+#                 detail=f"Access denied. Required role: {', '.join(allowed_roles)}"
+#             )
+
+#         request.state.user_data = user_data
+#         return user_data  # This return was missing
+    
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail=f"Authentication error: {str(e)}"
+#         )
+
+
+async def verify_session_middleware(request: Request):
+    session_id = request.cookies.get("session_id")
+
+    if not session_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required"
@@ -624,20 +684,9 @@ async def verify_session_middleware(request: Request, allowed_roles: list = None
     try:
         user_data = json.loads(user_data_json)
 
-        if user_data.get("role") != user_role_cookie:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid session"
-            )
-
-        if allowed_roles and user_data.get("role").lower() not in [role.lower() for role in allowed_roles]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied. Required role: {', '.join(allowed_roles)}"
-            )
-
         request.state.user_data = user_data
-        return user_data  # This return was missing
+        return user_data
+    
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -648,7 +697,7 @@ async def verify_session_middleware(request: Request, allowed_roles: list = None
 def get_verified_user(allowed_roles: list = None):
     """Returns a dependency function that verifies session with allowed roles"""
     async def dependency(request: Request):
-        user_data = await verify_session_middleware(request, allowed_roles)
+        user_data = await verify_session_middleware(request)
         return user_data
 
     return dependency
@@ -906,7 +955,7 @@ stored_data = {
     "api_data": None
 }
 
-@app.post("/dissertation/Shibboleth.sso/SAML2/POST")
+@app.post("/Shibboleth.sso/SAML2/POST")
 async def receive_saml_response(request: Request):
     form_data = await request.form()
     saml_response = form_data.get("SAMLResponse")
@@ -948,7 +997,7 @@ async def receive_saml_response(request: Request):
             "name": user_name,
             "role": user_role
         }
-        redis_client.setex(session_id, 3600, json.dumps(user_data))
+        redis_client.setex(session_id, 18000, json.dumps(user_data))
 
         redirect_url = "http://localhost:4002/HomePage"
         response = HTMLResponse(content=f"""
@@ -963,8 +1012,8 @@ async def receive_saml_response(request: Request):
         """, status_code=200)
         
         # Set the session ID in the cookie
-        response.set_cookie(key="session_id", value=session_id, httponly=True, secure=True, max_age=3600, samesite="None")
-        response.set_cookie(key="user_role", value=user_role, httponly=False, secure=True, max_age=3600, samesite="None")
+        response.set_cookie(key="session_id", value=session_id, httponly=True, secure=True, max_age=18000, samesite="None")
+        response.set_cookie(key="user_role", value=user_role, httponly=False, secure=True, max_age=18000, samesite="None")
 
         return response
 
@@ -1038,7 +1087,7 @@ async def get_saml_data():
     return JSONResponse(content=stored_data)
 
 def main():
-    uvicorn.run(app, host="0.0.0.0", port=8006)
+    uvicorn.run(app, host="0.0.0.0", port=8008)
 
 if __name__ == "__main__":
     main()
