@@ -144,5 +144,5 @@ class UserDataResponse(BaseModel):
     degree: str
     topic: str
     total_score: float
-    rubric_name:str
+    rubric_name:Optional[str]
     scores: List[DimensionScoreResponse]
