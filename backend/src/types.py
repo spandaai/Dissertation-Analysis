@@ -16,6 +16,7 @@ class User(Base):
     topic = Column(Text)  
     total_score = Column(Integer)
     evaluator = Column(String(255), index=True)
+    rubric_name=Column(String(255))
 
     scores = relationship("UserScore", back_populates="user")
 
@@ -80,6 +81,7 @@ class UserScoreData(BaseModel):
 class PostData(BaseModel):
     userData: UserData
     userScores: List[UserScoreData]
+    rubric_name: str
 
 class FeedbackData(BaseModel):
     selectedText: str
@@ -142,4 +144,5 @@ class UserDataResponse(BaseModel):
     degree: str
     topic: str
     total_score: float
+    rubric_name:str
     scores: List[DimensionScoreResponse]

@@ -158,8 +158,8 @@ const Dissertation = () => {
     }
   };
   
-  
-  const countDimensions = (rubric) => {
+
+    const countDimensions = (rubric) => {
     if (rubric && typeof rubric === "object" && rubric.dimensions) {
       return Object.values(rubric.dimensions).length;
     }
@@ -646,17 +646,15 @@ const postDataToBackend = async (postData) => {
     const response = await axios.post(apiHost, postData, {
       withCredentials: true  // This enables sending cookies with cross-origin requests
     });
-    console.log('Data posted successfully', response.data);
   } catch (error) {
     console.error('There was an error posting the data!', error);
   }
 };
 
 const extractAndPostData = (result) => {
-  // Check if name and degree are found in the result
   if (!result.name || !result.degree) {
     alert('Name or Degree not found in PDF');
-    return; // Stop further execution if either is missing
+    return;
   }
 
   const userData = {
@@ -665,25 +663,27 @@ const extractAndPostData = (result) => {
     topic: result.topic,
     total_score: result.total_score
   };
-  console.log("result",result)
-  console.log("result",result.criteria_evaluations)
 
-  const userScores = Object.entries(result.criteria_evaluations).map(([dimensionName, evaluation]) => ({
-    dimension_name: dimensionName,
-    score: evaluation.score,
-    data:evaluation.feedback
-  }));
-  console.log("userScores",userScores)
+  const userScores = Object.entries(result.criteria_evaluations).map(
+    ([dimensionName, evaluation]) => ({
+      dimension_name: dimensionName,
+      score: evaluation.score,
+      data: evaluation.feedback
+    })
+  );
+
+  const rubric_name = selectedRubric?.name || '';
 
   const postData = {
-    userData,    
-    userScores   
+    userData,
+    userScores,
+    rubric_name
   };
 
   setUserData(postData);
-
   postDataToBackend(postData);
 };
+
 
 
 const connectToNotificationWebSocket = () => {

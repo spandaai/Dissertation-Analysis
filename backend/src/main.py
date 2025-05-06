@@ -218,25 +218,14 @@ def post_user_data(postData: PostData, request: Request, db: Session = Depends(g
             # Log the error but continue with default evaluator
             print(f"Error retrieving session data: {e}")
     
-    # Check if user exists based on unique combination of name, degree, and topic
-    db_user = db.query(User).filter_by(
-        name=postData.userData.name,
-        degree=postData.userData.degree,
-        topic=postData.userData.topic,
-        evaluator=evaluator  # Use the evaluator from session
-    ).first()
-    print("evaluator",evaluator)
-    if db_user:
-        # Update user total score
-        db_user.total_score = postData.userData.total_score
-    else:
-        # Insert new user data if not exists
+
         db_user = User(
             name=postData.userData.name,
             degree=postData.userData.degree,
             topic=postData.userData.topic,
             total_score=postData.userData.total_score,
-            evaluator=evaluator  # Use the evaluator from session
+            evaluator=evaluator,  # Use the evaluator from session
+            rubric_name=postData.rubric_name
         )
         db.add(db_user)
         db.commit()
@@ -245,11 +234,7 @@ def post_user_data(postData: PostData, request: Request, db: Session = Depends(g
     # Update or insert user score data
     existing_scores = {score.dimension_name: score for score in db_user.scores}
     for score_data in postData.userScores:
-        if score_data.dimension_name in existing_scores:
-            # Update existing score
-            existing_scores[score_data.dimension_name].score = score_data.score
-        else:
-            print("postData.userScores",score_data.data)
+
             # Insert new score
             db_score = UserScore(
                 user_id=db_user.id,
@@ -457,13 +442,19 @@ async def websocket_dissertation(websocket: WebSocket):
     # Database Models
 
 @app.post("/dissertation/api/dissertation_analysis")
-async def post_dissertation(request: QueryRequestThesisAndRubric, evaluator: Optional[str], db: Session = Depends(get_db)):
+async def post_dissertation(
+    request: QueryRequestThesisAndRubric,
+    rubric_name: str,
+    evaluator: Optional[str],
+    db: Session = Depends(get_db)
+):
     """
     Post endpoint for dissertation analysis.
     Handles direct single dissertation call.
     """
     evaluator = "unknown" if evaluator is None else evaluator
     result = dict()
+    
     try:
         logger.info(f"Processing request for {request.pre_analysis.name} on topic {request.pre_analysis.topic}")
         # Process the request immediately
@@ -476,51 +467,44 @@ async def post_dissertation(request: QueryRequestThesisAndRubric, evaluator: Opt
         try:
             if isinstance(db, params.Depends):
                 db = SessionLocal()
+            
+            # Always insert a new user (no duplicate check)
             db_user = User(
-                    name=result['name'],
-                    degree=result['degree'],
-                    topic=result['topic'],
-                    total_score=result['total_score'],
-                    evaluator=evaluator  # Use the evaluator from session
-                )
+                name=result['name'],
+                degree=result['degree'],
+                topic=result['topic'],
+                total_score=result['total_score'],
+                evaluator=evaluator,
+                rubric_name=rubric_name
+            )
             db.add(db_user)
             db.commit()
             db.refresh(db_user)
-        
-        except IntegrityError as e:
-            db.rollback()  # Ensure rollback on error
-            print('entry already exists, skipping')
-            
-        db_user = db.query(User).filter_by(
-            name=result['name'],
-            degree=result['degree'],
-            topic=result['topic'],
-        ).first()
-        
-        try:
-            if db_user is not None:
-                for criterion in result["criteria_evaluations"]:
-                    score_entry = UserScore(
-                        user_id = db_user.id,
-                        dimension_name = criterion,
-                        score = result["criteria_evaluations"][criterion]['score'],
-                        data = result["criteria_evaluations"][criterion]['feedback']
-                    )
-                    db.add(score_entry)
-                    db.commit()
-                    db.refresh(score_entry)
+
+            # Insert associated scores
+            for criterion in result["criteria_evaluations"]:
+                score_entry = UserScore(
+                    user_id=db_user.id,
+                    dimension_name=criterion,
+                    score=result["criteria_evaluations"][criterion]['score'],
+                    data=result["criteria_evaluations"][criterion]['feedback']
+                )
+                db.add(score_entry)
+            db.commit()
+
         except Exception as e:
-            db.rollback()  # Ensure rollback on error
-            print(f"Error inserting user data: {e}")
+            db.rollback()
+            logger.error(f"Error inserting user data: {e}")
             raise HTTPException(status_code=500, detail="Internal server error")
 
-    
     return result
+
 
 @app.post("/dissertation/api/batch_input")
 async def batch_upload(
     request: Request,
     rubric: str = Form(...),
+    rubric_name:str = Form(...),
     files: List[UploadFile] = File(...),
     process_count: Optional[int] = None,
     db: Session = Depends(get_db)
@@ -545,7 +529,7 @@ async def batch_upload(
             print(f"Error retrieving session data: {e}")
 
     # Asynchronous processing
-    tasks = [asyncio.create_task(limit_concurrency(file, rubric_data, evaluator)) for file in files]
+    tasks = [asyncio.create_task(limit_concurrency(file, rubric_data,rubric_name, evaluator)) for file in files]
     results = await asyncio.gather(*tasks)
     
     return results
@@ -579,11 +563,11 @@ async def batch_download(files: List[UploadFile] = File(...), username: Optional
         new_index += 1
     return {"message": "Files processed successfully"}
 
-async def limit_concurrency(file: UploadFile, rubric: Dict[str, RubricCriteria], evaluator: Optional[str] = None):
+async def limit_concurrency(file: UploadFile, rubric: Dict[str, RubricCriteria], rubric_name: str,evaluator: Optional[str] = None):
     async with semaphore:
-        return await spawner(file, rubric,evaluator)
+        return await spawner(file, rubric,rubric_name,evaluator)
 
-async def spawner(file: UploadFile, rubric: Dict[str, RubricCriteria], evaluator: Optional[str] = None):
+async def spawner(file: UploadFile, rubric: Dict[str, RubricCriteria],rubric_name: str, evaluator: Optional[str] = None):
     try:
         thesis_obj = await analyze_file(file)
         thesis_request = QueryRequestThesis(
@@ -594,7 +578,7 @@ async def spawner(file: UploadFile, rubric: Dict[str, RubricCriteria], evaluator
             pre_analysis = await pre_analysis(thesis_request)
             #### not adding feedback rn
         )
-        result = await post_dissertation(summary_request, evaluator)   ## this will handle db parts too
+        result = await post_dissertation(summary_request,rubric_name, evaluator)   ## this will handle db parts too
         return
     except Exception as e:
         print('exception in spawner')
@@ -726,15 +710,23 @@ async def get_users_by_name(
     user_data: dict = Depends(get_verified_user(["staff", "STAFF", "admin", "ADMIN"])),
     db: Session = Depends(get_db)
 ):
-    name = user_data.get("name")
+    evaluator_name = user_data.get("name")
 
-    if not name:
+    if not evaluator_name:
         raise HTTPException(status_code=400, detail="Name not found in session")
 
-    users = db.query(User).filter(User.evaluator == name).all()
+    # Get all entries by this evaluator, sorted by ID descending
+    users = db.query(User).filter(User.evaluator == evaluator_name).order_by(User.id.desc()).all()
 
     if not users:
-        raise HTTPException(status_code=404, detail=f"No users found with name {name}")
+        raise HTTPException(status_code=404, detail=f"No evaluations found with name {evaluator_name}")
+
+    # Keep only the latest (name, rubric_name) entry
+    latest_entries = dict()
+    for user in users:
+        key = (user.name, user.rubric_name)
+        if key not in latest_entries:
+            latest_entries[key] = user  # First seen will be latest due to descending order
 
     return [
         UserDataResponse(
@@ -743,6 +735,7 @@ async def get_users_by_name(
             degree=user.degree,
             topic=user.topic,
             total_score=user.total_score,
+            rubric_name=user.rubric_name,
             scores=[
                 DimensionScoreResponse(
                     dimension_name=score.dimension_name,
@@ -750,9 +743,8 @@ async def get_users_by_name(
                     data=score.data
                 ) for score in user.scores
             ]
-        ) for user in users
+        ) for user in latest_entries.values()
     ]
-
 
 @app.put("/dissertation/api/users/{user_id}/scores")
 async def update_user_scores(

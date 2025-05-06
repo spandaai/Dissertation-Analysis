@@ -57,62 +57,66 @@ const BatchProcess = () => {
     e.target.value = '';
   };
 
-  // Function to submit files to the API
   const submitFiles = async () => {
     try {
-      setEvaluate(true)
+      setEvaluate(true);
+  
       // Filter out removed files
       const filesToUpload = files.filter((file, index) => 
         !removedFiles.includes(index)
       );
-      
+  
       if (filesToUpload.length === 0) {
         alert("Please select at least one file to upload");
         return;
       }
-      
-      // Check if transformedRubric exists and is not null
+  
       if (!transformedRubric) {
         alert("Please select the rubric before moving forward");
         return;
       }
-      
+  
       // Create form data
       const formData = new FormData();
-      
+  
       // Add files
       filesToUpload.forEach(file => {
         formData.append("files", file);
       });
-      
-      // Add the rubric as a string, but as a proper JSON object when parsed
+  
+      // Add the rubric as a string
       formData.append("rubric", JSON.stringify(transformedRubric));
-      
+  
+      // Add rubric_name from selectedRubric
+      if (selectedRubric?.name) {
+        formData.append("rubric_name", selectedRubric.name);
+      }
+  
       const response = await fetch(`${apiUrl}/dissertation/api/batch_input`, {
         method: "POST",
         body: formData,
         credentials: "include"
       });
-      
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(`Upload failed: ${JSON.stringify(errorData)}`);
       }
-      
+  
       const results = await response.json();
-      console.log("Upload successful:", results);
-      
+  
       // Handle successful upload
       setFiles([]);
       setSelectedFileNames("");
-      setEvaluate(false)
-      
+      setEvaluate(false);
+  
     } catch (error) {
       console.error("Error uploading files:", error);
-      setEvaluate(false)
-      // Handle error
+      setEvaluate(false);
     }
   };
+  
+
   const handleDragEnter = (e) => {
     e.preventDefault();
     e.stopPropagation();
