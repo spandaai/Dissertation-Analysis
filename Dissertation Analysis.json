@@ -714,7 +714,7 @@
               "use_multithreading",
               "concurrency_multithreading"
             ],
-            "frozen": true,
+            "frozen": false,
             "icon": "file-text",
             "legacy": false,
             "lf_version": "1.3.4",
@@ -998,7 +998,7 @@
           "x": -1.9659555342637987,
           "y": -176.17668964085965
         },
-        "selected": true,
+        "selected": false,
         "type": "genericNode"
       },
       {
@@ -1019,7 +1019,7 @@
               "input_value",
               "n_value"
             ],
-            "frozen": true,
+            "frozen": false,
             "icon": "code",
             "legacy": false,
             "lf_version": "1.3.4",
@@ -1145,7 +1145,7 @@
               "input_data",
               "sep"
             ],
-            "frozen": true,
+            "frozen": false,
             "icon": "braces",
             "legacy": false,
             "lf_version": "1.3.4",
@@ -1342,7 +1342,7 @@
               "system_message",
               "stream"
             ],
-            "frozen": true,
+            "frozen": false,
             "icon": "Ollama",
             "key": "OllamaModel",
             "legacy": false,
@@ -1985,7 +1985,7 @@
               "template",
               "tool_placeholder"
             ],
-            "frozen": true,
+            "frozen": false,
             "full_path": null,
             "icon": "prompts",
             "is_composition": null,
@@ -2117,7 +2117,7 @@
               "input_data",
               "sep"
             ],
-            "frozen": true,
+            "frozen": false,
             "icon": "braces",
             "legacy": false,
             "lf_version": "1.3.4",
@@ -2291,7 +2291,7 @@
               "template",
               "tool_placeholder"
             ],
-            "frozen": true,
+            "frozen": false,
             "full_path": null,
             "icon": "prompts",
             "is_composition": null,
@@ -2447,7 +2447,7 @@
               "system_message",
               "stream"
             ],
-            "frozen": true,
+            "frozen": false,
             "icon": "Ollama",
             "key": "OllamaModel",
             "legacy": false,
@@ -3089,7 +3089,7 @@
               "input_data",
               "sep"
             ],
-            "frozen": true,
+            "frozen": false,
             "icon": "braces",
             "legacy": false,
             "lf_version": "1.3.4",
@@ -3263,7 +3263,7 @@
               "template",
               "tool_placeholder"
             ],
-            "frozen": true,
+            "frozen": false,
             "full_path": null,
             "icon": "prompts",
             "is_composition": null,
@@ -3641,12 +3641,7 @@
                 "dynamic": false,
                 "info": "Refer to https://ollama.com/library for more models.",
                 "name": "model_name",
-                "options": [
-                  "qwen3:0.6b",
-                  "llama3.2:1b",
-                  "llama3.1:latest",
-                  "llama3.2:latest"
-                ],
+                "options": [],
                 "options_metadata": [],
                 "placeholder": "",
                 "real_time_refresh": true,
@@ -4997,10 +4992,9 @@
               "text_key",
               "keep_separator"
             ],
-            "frozen": true,
+            "frozen": false,
             "icon": "scissors-line-dashed",
             "legacy": false,
-            "lf_version": "1.3.4",
             "metadata": {},
             "minimized": false,
             "output_types": [],
@@ -5009,7 +5003,7 @@
                 "allows_loop": false,
                 "cache": true,
                 "display_name": "Chunks",
-                "hidden": false,
+                "hidden": null,
                 "method": "split_text",
                 "name": "chunks",
                 "options": null,
@@ -5094,7 +5088,7 @@
                 "show": true,
                 "title_case": false,
                 "type": "code",
-                "value": "from langchain_text_splitters import CharacterTextSplitter\n\nfrom langflow.custom import Component\nfrom langflow.io import DropdownInput, HandleInput, IntInput, MessageTextInput, Output\nfrom langflow.schema import Data, DataFrame\nfrom langflow.utils.util import unescape_string\n\n\nclass SplitTextComponent(Component):\n    display_name: str = \"Split Text\"\n    description: str = \"Split text into chunks based on specified criteria.\"\n    icon = \"scissors-line-dashed\"\n    name = \"SplitText\"\n\n    inputs = [\n        HandleInput(\n            name=\"data_inputs\",\n            display_name=\"Data or DataFrame\",\n            info=\"The data with texts to split in chunks.\",\n            input_types=[\"Data\", \"DataFrame\"],\n            required=True,\n        ),\n        IntInput(\n            name=\"chunk_overlap\",\n            display_name=\"Chunk Overlap\",\n            info=\"Number of characters to overlap between chunks.\",\n            value=200,\n        ),\n        IntInput(\n            name=\"chunk_size\",\n            display_name=\"Chunk Size\",\n            info=(\n                \"The maximum length of each chunk. Text is first split by separator, \"\n                \"then chunks are merged up to this size. \"\n                \"Individual splits larger than this won't be further divided.\"\n            ),\n            value=1000,\n        ),\n        MessageTextInput(\n            name=\"separator\",\n            display_name=\"Separator\",\n            info=(\n                \"The character to split on. Use \\\\n for newline. \"\n                \"Examples: \\\\n\\\\n for paragraphs, \\\\n for lines, . for sentences\"\n            ),\n            value=\"\\n\",\n        ),\n        MessageTextInput(\n            name=\"text_key\",\n            display_name=\"Text Key\",\n            info=\"The key to use for the text column.\",\n            value=\"text\",\n            advanced=True,\n        ),\n        DropdownInput(\n            name=\"keep_separator\",\n            display_name=\"Keep Separator\",\n            info=\"Whether to keep the separator in the output chunks and where to place it.\",\n            options=[\"False\", \"True\", \"Start\", \"End\"],\n            value=\"False\",\n            advanced=True,\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Chunks\", name=\"chunks\", method=\"split_text\"),\n        Output(display_name=\"DataFrame\", name=\"dataframe\", method=\"as_dataframe\"),\n    ]\n\n    def _docs_to_data(self, docs) -> list[Data]:\n        return [Data(text=doc.page_content, data=doc.metadata) for doc in docs][:3]\n\n    def _fix_separator(self, separator: str) -> str:\n        \"\"\"Fix common separator issues and convert to proper format.\"\"\"\n        if separator == \"/n\":\n            return \"\\n\"\n        if separator == \"/t\":\n            return \"\\t\"\n        return separator\n\n    def split_text_base(self):\n        separator = self._fix_separator(self.separator)\n        separator = unescape_string(separator)\n\n        if isinstance(self.data_inputs, DataFrame):\n            if not len(self.data_inputs):\n                msg = \"DataFrame is empty\"\n                raise TypeError(msg)\n\n            self.data_inputs.text_key = self.text_key\n            try:\n                documents = self.data_inputs.to_lc_documents()\n            except Exception as e:\n                msg = f\"Error converting DataFrame to documents: {e}\"\n                raise TypeError(msg) from e\n        else:\n            if not self.data_inputs:\n                msg = \"No data inputs provided\"\n                raise TypeError(msg)\n\n            documents = []\n            if isinstance(self.data_inputs, Data):\n                self.data_inputs.text_key = self.text_key\n                documents = [self.data_inputs.to_lc_document()]\n            else:\n                try:\n                    documents = [input_.to_lc_document() for input_ in self.data_inputs if isinstance(input_, Data)]\n                    if not documents:\n                        msg = f\"No valid Data inputs found in {type(self.data_inputs)}\"\n                        raise TypeError(msg)\n                except AttributeError as e:\n                    msg = f\"Invalid input type in collection: {e}\"\n                    raise TypeError(msg) from e\n        try:\n            # Convert string 'False'/'True' to boolean\n            keep_sep = self.keep_separator\n            if isinstance(keep_sep, str):\n                if keep_sep.lower() == \"false\":\n                    keep_sep = False\n                elif keep_sep.lower() == \"true\":\n                    keep_sep = True\n                # 'start' and 'end' are kept as strings\n\n            splitter = CharacterTextSplitter(\n                chunk_overlap=self.chunk_overlap,\n                chunk_size=self.chunk_size,\n                separator=separator,\n                keep_separator=keep_sep,\n            )\n            return splitter.split_documents(documents)\n        except Exception as e:\n            msg = f\"Error splitting text: {e}\"\n            raise TypeError(msg) from e\n\n    def split_text(self) -> list[Data]:\n        return self._docs_to_data(self.split_text_base())\n\n    def as_dataframe(self) -> DataFrame:\n        return DataFrame(self.split_text())\n"
+                "value": "from langchain_text_splitters import CharacterTextSplitter\n\nfrom langflow.custom import Component\nfrom langflow.io import DropdownInput, HandleInput, IntInput, MessageTextInput, Output\nfrom langflow.schema import Data, DataFrame\nfrom langflow.utils.util import unescape_string\n\n\nclass SplitTextComponent(Component):\n    display_name: str = \"Split Text\"\n    description: str = \"Split text into chunks based on specified criteria.\"\n    icon = \"scissors-line-dashed\"\n    name = \"SplitText\"\n\n    inputs = [\n        HandleInput(\n            name=\"data_inputs\",\n            display_name=\"Data or DataFrame\",\n            info=\"The data with texts to split in chunks.\",\n            input_types=[\"Data\", \"DataFrame\"],\n            required=True,\n        ),\n        IntInput(\n            name=\"chunk_overlap\",\n            display_name=\"Chunk Overlap\",\n            info=\"Number of characters to overlap between chunks.\",\n            value=200,\n        ),\n        IntInput(\n            name=\"chunk_size\",\n            display_name=\"Chunk Size\",\n            info=(\n                \"The maximum length of each chunk. Text is first split by separator, \"\n                \"then chunks are merged up to this size. \"\n                \"Individual splits larger than this won't be further divided.\"\n            ),\n            value=1000,\n        ),\n        MessageTextInput(\n            name=\"separator\",\n            display_name=\"Separator\",\n            info=(\n                \"The character to split on. Use \\\\n for newline. \"\n                \"Examples: \\\\n\\\\n for paragraphs, \\\\n for lines, . for sentences\"\n            ),\n            value=\"\\n\",\n        ),\n        MessageTextInput(\n            name=\"text_key\",\n            display_name=\"Text Key\",\n            info=\"The key to use for the text column.\",\n            value=\"text\",\n            advanced=True,\n        ),\n        DropdownInput(\n            name=\"keep_separator\",\n            display_name=\"Keep Separator\",\n            info=\"Whether to keep the separator in the output chunks and where to place it.\",\n            options=[\"False\", \"True\", \"Start\", \"End\"],\n            value=\"False\",\n            advanced=True,\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Chunks\", name=\"chunks\", method=\"split_text\"),\n        Output(display_name=\"DataFrame\", name=\"dataframe\", method=\"as_dataframe\"),\n    ]\n\n    def _docs_to_data(self, docs) -> list[Data]:\n        return [Data(text=doc.page_content, data=doc.metadata) for doc in docs]\n\n    def _fix_separator(self, separator: str) -> str:\n        \"\"\"Fix common separator issues and convert to proper format.\"\"\"\n        if separator == \"/n\":\n            return \"\\n\"\n        if separator == \"/t\":\n            return \"\\t\"\n        return separator\n\n    def split_text_base(self):\n        separator = self._fix_separator(self.separator)\n        separator = unescape_string(separator)\n\n        if isinstance(self.data_inputs, DataFrame):\n            if not len(self.data_inputs):\n                msg = \"DataFrame is empty\"\n                raise TypeError(msg)\n\n            self.data_inputs.text_key = self.text_key\n            try:\n                documents = self.data_inputs.to_lc_documents()\n            except Exception as e:\n                msg = f\"Error converting DataFrame to documents: {e}\"\n                raise TypeError(msg) from e\n        else:\n            if not self.data_inputs:\n                msg = \"No data inputs provided\"\n                raise TypeError(msg)\n\n            documents = []\n            if isinstance(self.data_inputs, Data):\n                self.data_inputs.text_key = self.text_key\n                documents = [self.data_inputs.to_lc_document()]\n            else:\n                try:\n                    documents = [input_.to_lc_document() for input_ in self.data_inputs if isinstance(input_, Data)]\n                    if not documents:\n                        msg = f\"No valid Data inputs found in {type(self.data_inputs)}\"\n                        raise TypeError(msg)\n                except AttributeError as e:\n                    msg = f\"Invalid input type in collection: {e}\"\n                    raise TypeError(msg) from e\n        try:\n            # Convert string 'False'/'True' to boolean\n            keep_sep = self.keep_separator\n            if isinstance(keep_sep, str):\n                if keep_sep.lower() == \"false\":\n                    keep_sep = False\n                elif keep_sep.lower() == \"true\":\n                    keep_sep = True\n                # 'start' and 'end' are kept as strings\n\n            splitter = CharacterTextSplitter(\n                chunk_overlap=self.chunk_overlap,\n                chunk_size=self.chunk_size,\n                separator=separator,\n                keep_separator=keep_sep,\n            )\n            return splitter.split_documents(documents)\n        except Exception as e:\n            msg = f\"Error splitting text: {e}\"\n            raise TypeError(msg) from e\n\n    def split_text(self) -> list[Data]:\n        return self._docs_to_data(self.split_text_base())\n\n    def as_dataframe(self) -> DataFrame:\n        return DataFrame(self.split_text())\n"
               },
               "data_inputs": {
                 "_input_type": "HandleInput",
@@ -5229,7 +5223,7 @@
               "template",
               "tool_placeholder"
             ],
-            "frozen": true,
+            "frozen": false,
             "full_path": null,
             "icon": "prompts",
             "is_composition": null,
@@ -5373,7 +5367,7 @@
                 "allows_loop": false,
                 "cache": true,
                 "display_name": "Output",
-                "hidden": null,
+                "hidden": false,
                 "method": "build_output",
                 "name": "output",
                 "options": null,
@@ -5964,7 +5958,6 @@
             "frozen": false,
             "icon": "code",
             "legacy": false,
-            "lf_version": "1.3.4",
             "metadata": {},
             "minimized": false,
             "output_types": [],
@@ -6028,7 +6021,7 @@
                 "show": true,
                 "title_case": false,
                 "type": "code",
-                "value": "# from langflow.field_typing import Data\nfrom langflow.custom import Component\nfrom langflow.io import MessageTextInput, Output, DataInput\nfrom langflow.schema import Data\nimport asyncio\nfrom langchain_community.chat_models import ChatOllama\nfrom langchain.schema import SystemMessage, HumanMessage\nimport re\n\n\nclass CustomComponent(Component):\n    display_name = \"Feedback Agent\"\n    description = \"Generates comprehensive feedback and scoring\"\n    documentation: str = \"https://docs.langflow.org/components-custom-components\"\n    icon = \"code\"\n    name = \"CustomComponent\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"summary\",\n            display_name=\"Summary\",\n            info=\"This is a custom component Input\",\n            tool_mode=True,\n        ),\n        MessageTextInput(\n            name=\"author_name\",\n            display_name=\"Name\",\n            info=\"This is a custom component Input\",\n            tool_mode=True,\n        ),\n        MessageTextInput(\n            name=\"degree\",\n            display_name=\"Degree\",\n            info=\"This is a custom component Input\",\n            tool_mode=True,\n        ),\n        MessageTextInput(\n            name=\"topic\",\n            display_name=\"Topic\",\n            info=\"This is a custom component Input\",\n            tool_mode=True,\n        ),\n        DataInput(\n            name = 'rubric',\n            display_name = 'Rubruc',\n            info = 'rubric for evaluation',),\n        MessageTextInput(\n            name = \"model_name\",\n            display_name = \"Model Name\",\n            info = \"Name of ollama model to use\",\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Output\", name=\"output\", method=\"build_output\"),\n    ]\n    \n    async def invoke_llm(self, system_prompt: str, user_prompt: str):\n        llm = ChatOllama(model=self.model_name, base_url=\"http://localhost:11434\")\n        messages = [\n            SystemMessage(content=system_prompt),\n            HumanMessage(content=user_prompt)\n        ]\n        return llm(messages).content\n    \n    async def scoring_agent(self, analysis, criteria, score_guidelines, criteria_guidelines, feedback):\n        scoring_agent_system_prompt = \"\"\"You are a precise scoring agent that evaluates one dissertation criterion at a time. \n        Review the provided criterion analysis, match it to the scoring guidelines, and assign a score from 0 to 5, without justification, solely use the analysis for your justification. \n        Evaluate only the assigned criterion, using only the given analysis, and follow the guidelines exactly. \n        Do not consider external factors, make assumptions, or deviate from objective standards.\"\"\"\n        scoring_agent_user_prompt = f\"\"\"# Provide a score for the following analysis done:\n        \n        -Analysis: {analysis}\n        \n        -Explanation of {criteria}: {criteria_guidelines}\n        \n        -Guidelines of scoring for {criteria}: {score_guidelines}\n        \n        Your score will only be for the following criterion: {criteria}. Provide ONLY the score based on the analysis that has been done. Be very critical while providing the score.\n        \n        IMPORTANT(The following feedback was provided by an expert. Consider the feedback properly, and ensure your evaluation follows this feedback): {feedback}\n        \n        Required output format. It is extremely important for the score to be displayed in this exact format with no formatting and whitespaces:\n        spanda_score: <score (out of 5)>\"\"\"\n        full_text_dict = await self.invoke_llm(\n            system_prompt=scoring_agent_system_prompt,\n            user_prompt=scoring_agent_user_prompt)\n        score_for_criteria = full_text_dict\n        return score_for_criteria\n\n    async def process_request(self):\n        degree_of_student = self.degree\n        name_of_author = self.author_name\n        topic = self.topic\n        dissertation_system_prompt = \"\"\"You are an impartial academic evaluator - an expert in analyzing the summarized dissertation provided to you. \n        Your task is to assess the quality of the provided summarized dissertation in relation to specific evaluation criteria.\"\"\"\n        evaluation_results = {}\n        total_score = 0\n        for criterion, explanation in self.rubric.value.items():\n            dissertation_user_prompt = f\"\"\"\n                # Input Materials\n                ## Dissertation Text\n                {self.summary}\n                \n                ## Evaluation Context\n                - Author: {name_of_author}\n                - Academic Field: {degree_of_student}\n                \n                ## Assessment Criterion and its explanation\n                ### {criterion}:\n                #### Explanation: {explanation['criteria_explanation']}\n                \n                {explanation['criteria_output']}\n                \n                Please make sure that you critique the work heavily, including all improvements that can be made.\n                \n                DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO SCORES ASSOCIATED WITH IT.\n                \"\"\"\n            analyzed_dissertation = await self.invoke_llm(\n                    system_prompt=dissertation_system_prompt,\n                    user_prompt=dissertation_user_prompt)\n            graded_response = await self.scoring_agent(\n                analyzed_dissertation, \n                criterion, \n                explanation['score_explanation'], \n                explanation['criteria_explanation'],\n                \"\"\n            )\n            pattern = r\"spanda_score\\s*:\\s*(?:\\*{1,2}\\s*)?(\\d+(?:\\.\\d+)?)\\s*(?:\\*{1,2})?\"\n            match = re.search(pattern, graded_response, re.IGNORECASE)\n            score = float(match.group(1)) if match else 0\n            total_score += score\n            evaluation_results[criterion] = {\n                \"feedback\": analyzed_dissertation,\n                \"score\": score\n            }\n        return {\n            \"criteria_evaluations\": evaluation_results,\n            \"total_score\": total_score,\n            \"name\": name_of_author,\n            \"degree\": degree_of_student,\n            \"topic\": topic\n        }\n    \n    def build_output(self) -> Data:\n        data = Data(value=asyncio.run(self.process_request()))\n        self.status = data\n        return data\n"
+                "value": "# from langflow.field_typing import Data\nfrom langflow.custom import Component\nfrom langflow.io import MessageTextInput, Output, DataInput\nfrom langflow.schema import Data\nimport asyncio\nfrom langchain_community.chat_models import ChatOllama\nfrom langchain.schema import SystemMessage, HumanMessage\nimport re\n\n\nclass CustomComponent(Component):\n    display_name = \"Feedback Agent\"\n    description = \"Generates comprehensive feedback and scoring\"\n    documentation: str = \"https://docs.langflow.org/components-custom-components\"\n    icon = \"code\"\n    name = \"CustomComponent\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"summary\",\n            display_name=\"Summary\",\n            info=\"This is a custom component Input\",\n            tool_mode=True,\n        ),\n        MessageTextInput(\n            name=\"author_name\",\n            display_name=\"Name\",\n            info=\"This is a custom component Input\",\n            tool_mode=True,\n        ),\n        MessageTextInput(\n            name=\"degree\",\n            display_name=\"Degree\",\n            info=\"This is a custom component Input\",\n            tool_mode=True,\n        ),\n        MessageTextInput(\n            name=\"topic\",\n            display_name=\"Topic\",\n            info=\"This is a custom component Input\",\n            tool_mode=True,\n        ),\n        DataInput(\n            name = 'rubric',\n            display_name = 'Rubric',\n            info = 'rubric for evaluation',),\n        MessageTextInput(\n            name = \"model_name\",\n            display_name = \"Model Name\",\n            info = \"Name of ollama model to use\",\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Output\", name=\"output\", method=\"build_output\"),\n    ]\n    \n    async def invoke_llm(self, system_prompt: str, user_prompt: str):\n        llm = ChatOllama(model=self.model_name, base_url=\"http://localhost:11434\")\n        messages = [\n            SystemMessage(content=system_prompt),\n            HumanMessage(content=user_prompt)\n        ]\n        return llm(messages).content\n    \n    async def scoring_agent(self, analysis, criteria, score_guidelines, criteria_guidelines, feedback):\n        scoring_agent_system_prompt = \"\"\"You are a precise scoring agent that evaluates one dissertation criterion at a time. \n        Review the provided criterion analysis, match it to the scoring guidelines, and assign a score from 0 to 5, without justification, solely use the analysis for your justification. \n        Evaluate only the assigned criterion, using only the given analysis, and follow the guidelines exactly. \n        Do not consider external factors, make assumptions, or deviate from objective standards.\"\"\"\n        scoring_agent_user_prompt = f\"\"\"# Provide a score for the following analysis done:\n        \n        -Analysis: {analysis}\n        \n        -Explanation of {criteria}: {criteria_guidelines}\n        \n        -Guidelines of scoring for {criteria}: {score_guidelines}\n        \n        Your score will only be for the following criterion: {criteria}. Provide ONLY the score based on the analysis that has been done. Be very critical while providing the score.\n        \n        IMPORTANT(The following feedback was provided by an expert. Consider the feedback properly, and ensure your evaluation follows this feedback): {feedback}\n        \n        Required output format. It is extremely important for the score to be displayed in this exact format with no formatting and whitespaces:\n        spanda_score: <score (out of 5)>\"\"\"\n        full_text_dict = await self.invoke_llm(\n            system_prompt=scoring_agent_system_prompt,\n            user_prompt=scoring_agent_user_prompt)\n        score_for_criteria = full_text_dict\n        return score_for_criteria\n\n    async def process_request(self):\n        degree_of_student = self.degree\n        name_of_author = self.author_name\n        topic = self.topic\n        dissertation_system_prompt = \"\"\"You are an impartial academic evaluator - an expert in analyzing the summarized dissertation provided to you. \n        Your task is to assess the quality of the provided summarized dissertation in relation to specific evaluation criteria.\"\"\"\n        evaluation_results = {}\n        total_score = 0\n        for criterion, explanation in self.rubric.value.items():\n            dissertation_user_prompt = f\"\"\"\n                # Input Materials\n                ## Dissertation Text\n                {self.summary}\n                \n                ## Evaluation Context\n                - Author: {name_of_author}\n                - Academic Field: {degree_of_student}\n                \n                ## Assessment Criterion and its explanation\n                ### {criterion}:\n                #### Explanation: {explanation['criteria_explanation']}\n                \n                {explanation['criteria_output']}\n                \n                Please make sure that you critique the work heavily, including all improvements that can be made.\n                \n                DO NOT SCORE THE DISSERTATION, YOU ARE TO PROVIDE ONLY DETAILED ANALYSIS, AND NO SCORES ASSOCIATED WITH IT.\n                \"\"\"\n            analyzed_dissertation = await self.invoke_llm(\n                    system_prompt=dissertation_system_prompt,\n                    user_prompt=dissertation_user_prompt)\n            graded_response = await self.scoring_agent(\n                analyzed_dissertation, \n                criterion, \n                explanation['score_explanation'], \n                explanation['criteria_explanation'],\n                \"\"\n            )\n            pattern = r\"spanda_score\\s*:\\s*(?:\\*{1,2}\\s*)?(\\d+(?:\\.\\d+)?)\\s*(?:\\*{1,2})?\"\n            match = re.search(pattern, graded_response, re.IGNORECASE)\n            score = float(match.group(1)) if match else 0\n            total_score += score\n            evaluation_results[criterion] = {\n                \"feedback\": analyzed_dissertation,\n                \"score\": score\n            }\n        return {\n            \"criteria_evaluations\": evaluation_results,\n            \"total_score\": total_score,\n            \"name\": name_of_author,\n            \"degree\": degree_of_student,\n            \"topic\": topic\n        }\n    \n    def build_output(self) -> Data:\n        data = Data(value=asyncio.run(self.process_request()))\n        self.status = data\n        return data\n"
               },
               "degree": {
                 "_input_type": "MessageTextInput",
@@ -6079,7 +6072,7 @@
               "rubric": {
                 "_input_type": "DataInput",
                 "advanced": false,
-                "display_name": "Rubruc",
+                "display_name": "Rubric",
                 "dynamic": false,
                 "info": "rubric for evaluation",
                 "input_types": [
@@ -6160,7 +6153,7 @@
           "x": 2895.8335407268073,
           "y": 405.97571281636124
         },
-        "selected": false,
+        "selected": true,
         "type": "genericNode"
       },
       {
@@ -6476,9 +6469,9 @@
       }
     ],
     "viewport": {
-      "x": 254.7918671555518,
-      "y": 299.8106518958506,
-      "zoom": 0.2
+      "x": -1227.661769554365,
+      "y": -223.3365160217195,
+      "zoom": 0.6062866266041596
     }
   },
   "description": "Craft Language Connections Here.",
