@@ -1,0 +1,33 @@
+{
+    "Relevance and Practical Impact": {
+      "criteria_explanation": "Evaluates the project's alignment with industry needs and real-world applicability. Assesses potential benefits and improvements for businesses or organizations.\n1. Confirm that the problem addresses a relevant business need or gap.\n2. Evaluate if the project offers feasible, actionable recommendations.\n3. Challenge claims about impact with practical, industry-relevant evidence.",
+      "criteria_output": "1. Evaluate Problem Relevance: Confirm that the problem addresses a relevant business need or gap.\n2. Assess Real-World Applicability: Evaluate if the project offers feasible, actionable recommendations.\n3. Analyze Impact Potential: Challenge claims about impact with practical, industry-relevant evidence.",
+      "score_explanation": "Score 1: Irrelevant problem with no practical application.\nScore 2: Basic relevance with limited applicability.\nScore 3: Clear relevance and practical implications.\nScore 4: Strong, actionable insights with potential industry impact.\nScore 5: Highly impactful, with immediate and valuable applications."
+    },
+    "Analytical Rigor and Methodological Soundness": {
+      "criteria_explanation": "Assesses the thoroughness and accuracy of the project's analysis, including data quality and validity of findings.\n1. Identify any methodological weaknesses or assumptions.\n2. Assess data sources and consistency, and suggest improvements.\n3. Ensure conclusions are well-supported by data.",
+      "criteria_output": "1. Validate Analytical Approach: Identify any methodological weaknesses or assumptions.\n2. Examine Data Quality and Analysis: Assess data sources and consistency, and suggest improvements.\n3. Verify Soundness of Conclusions: Ensure conclusions are well-supported by data.",
+      "score_explanation": "Score 1: Flawed methodology, unreliable results.\nScore 2: Basic methodology with significant gaps.\nScore 3: Standard methodology, reliable insights.\nScore 4: Thorough analysis with strong, well-supported insights.\nScore 5: Exceptionally rigorous, data-driven conclusions."
+    },
+    "Problem Framing and Business Context": {
+      "criteria_explanation": "Evaluates clarity in defining the business problem, scope, and understanding of industry context.\n1. Confirm that the problem is well-defined and relevant.\n2. Identify if the project’s scope is appropriate and achievable.\n3. Ensure understanding of relevant market or industry context.",
+      "criteria_output": "1. Evaluate Problem Definition: Confirm that the problem is well-defined and relevant.\n2. Examine Scope and Feasibility: Identify if the project’s scope is appropriate and achievable.\n3. Contextualize with Market Insights: Ensure understanding of relevant market or industry context.",
+      "score_explanation": "Score 1: Poorly defined problem, lacking business relevance.\nScore 2: General problem with limited context.\nScore 3: Well-defined problem with business context.\nScore 4: Strong framing with market insights.\nScore 5: Expertly framed, with deep business context understanding."
+    },
+    "Problem-Solving Approach and Strategic Insight": {
+      "criteria_explanation": "Evaluates the project's approach to solving the business problem, including strategic thinking and feasibility.\n1. Evaluate use of business frameworks (e.g., SWOT, PESTLE).\n2. Challenge solutions that may lack feasibility.\n3. Identify any limitations in resources or implementation.",
+      "criteria_output": "1. Assess Strategic Thinking: Evaluate use of business frameworks (e.g., SWOT, PESTLE).\n2. Examine Solution Feasibility: Challenge solutions that may lack feasibility.\n3. Consider Practical Constraints: Identify any limitations in resources or implementation.",
+      "score_explanation": "Score 1: Ineffective approach with limited strategic value.\nScore 2: Basic approach with feasibility issues.\nScore 3: Competent strategy with actionable recommendations.\nScore 4: Strong, well-grounded strategy.\nScore 5: Highly strategic and innovative approach with practical value."
+    },
+    "Project Outcomes and Business Implications": {
+      "criteria_explanation": "Assesses the project's practical outcomes and implications for business practice, including clarity of recommendations.\n1. Assess if recommendations are actionable and achievable.\n2. Evaluate expected benefits for the business.\n3. Identify any gaps or incomplete areas.",
+      "criteria_output": "1. Evaluate Practical Recommendations: Assess if recommendations are actionable and achievable.\n2. Analyze Potential Business Benefits: Evaluate expected benefits for the business.\n3. Assess Completeness of Solution: Identify any gaps or incomplete areas.",
+      "score_explanation": "Score 1: No meaningful outcomes, impractical recommendations.\nScore 2: Minimal outcomes with limited relevance.\nScore 3: Clear, practical recommendations with relevance.\nScore 4: Strong outcomes with significant business value.\nScore 5: Outstanding outcomes with transformative implications."
+    },
+    "Innovation and Contribution to Knowledge": {
+      "criteria_explanation": "Evaluates originality and contribution to the field, including uniqueness of insights and broader applicability.\n1. Challenge originality by identifying overlap with existing solutions and highlighting unique value.\n2. Assess contribution to business knowledge by evaluating the project’s impact on business practices.\n3. Consider broader applicability by assessing if solutions could apply across different contexts.",
+      "criteria_output": "1. Challenge Originality: Identify overlap with existing solutions and highlight unique value.\n2. Assess Contribution to Business Knowledge: Evaluate the project’s contribution to business practices.\n3. Consider Broader Application: Assess if solutions could apply across different contexts.",
+      "score_explanation": "Score 1: Minimal contribution, redundant ideas.\nScore 2: Limited originality, minor practical contribution.\nScore 3: Useful insights with moderate innovation.\nScore 4: Significant, unique contribution to business knowledge.\nScore 5: Highly original, with potential to influence business practices broadly."
+    }
+  }
+  

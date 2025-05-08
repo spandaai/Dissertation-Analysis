@@ -1,0 +1,24 @@
+inference_engines changed to accomodate langchain compatible LLM.
+Restructuring the entire workflow, major changes in backend/Agents/text_agents.py and backend/src/main.py, some changes in backend/src/logic.py (removed and put in text_agents)
+
+combining chunking and summarization into single function for agent, as chunks are being inferenced
+analysis of all criteria wil be handled by a single agent
+scoring of all criteria wil be handled by a single agent
+
+
+workflow:
++ read file
++ read name, topic, degree
++ use topic and thesis, summarize into one string
++ summary + rubric item -> analysis for each criterion  |-|  summary -> scope of thesis
++ analysis + rubric item -> score                       |-|  analysis + scope -> scoped reccomendations
+- store all data
+
+workflow todo:
+- the entire image/ readfile pipeline
+- turn readers into tools
+
+stategraph inputs:
+- file
+- rubric
+- feedback

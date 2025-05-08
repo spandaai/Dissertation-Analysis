@@ -1,4 +1,4 @@
-from backend.Agents.text_agents import extract_name_agent, extract_topic_agent, extract_degree_agent
+# from backend.Agents.text_agents import extract_name_agent, extract_topic_agent, extract_degree_agent
 from backend.Agents.vision_agents import analyze_image
 
 import asyncio
